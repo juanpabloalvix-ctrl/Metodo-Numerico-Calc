@@ -432,7 +432,7 @@ function TeamModal({ onClose }) {
           ))}
         </div>
         <div style={{ marginTop:22, padding:"14px 18px", background:"rgba(37,99,235,0.07)", border:"1px solid rgba(37,99,235,0.18)", borderRadius:14, textAlign:"center" }}>
-          <p style={{ color:"#334155", fontSize:11, margin:0 }}>Fundación Universitaria Tecnológico Comfenalco · 2025</p>
+          <p style={{ color:"#334155", fontSize:11, margin:0 }}>Fundación Universitaria Tecnológico Comfenalco · 2026</p>
         </div>
       </div>
     </div>
