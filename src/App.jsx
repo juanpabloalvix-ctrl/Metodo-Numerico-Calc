@@ -425,7 +425,7 @@ function TeamModal({ onClose }) {
               <div style={{ width:44, height:44, borderRadius:"50%", flexShrink:0, background:`hsl(${member.hue},60%,10%)`, border:`2px solid hsl(${member.hue},65%,38%)`, display:"flex", alignItems:"center", justifyContent:"center", fontSize:13, fontWeight:800, color:`hsl(${member.hue},80%,72%)` }}>{member.initials}</div>
               <div style={{ flex:1 }}>
                 <p style={{ color:"#e2e8f0", fontSize:13, fontWeight:700, margin:0 }}>{member.name}</p>
-                <p style={{ color:"#334155", fontSize:10, margin:"3px 0 0" }}>Ingeniería · Cálculo Numérico</p>
+                <p style={{ color:"#334155", fontSize:10, margin:"3px 0 0" }}>Ingeniería · Metodo Numérico</p>
               </div>
               <div style={{ width:7, height:7, borderRadius:"50%", background:`hsl(${member.hue},70%,55%)`, animation:`dotPulse 2s ease-in-out ${i*0.3}s infinite`, flexShrink:0 }}/>
             </div>
