@@ -61,13 +61,207 @@ const METHODS = {
   },
 };
 
+// ── CONVERSIÓN DISPLAY → MATHJS ──────────────────────────
+const CONVERSIONS = [
+  [/√\(/g,      "sqrt("],
+  [/π/g,        "pi"],
+  [/sen\(/g,    "sin("],
+  [/tg\(/g,     "tan("],
+  [/log₁₀\(/g,  "log10("],
+  [/ln\(/g,     "log("],
+  [/×/g,        "*"],
+  [/÷/g,        "/"],
+  [/·/g,        "*"],
+];
+
+function toMathJS(expr) {
+  let r = expr;
+  for (const [pat, rep] of CONVERSIONS) r = r.replace(pat, rep);
+  return r;
+}
+
+const SCI_KEYS = [
+  { label: "√(",    insert: "√(",     autoClose: true  },
+  { label: "π",     insert: "π",      autoClose: false },
+  { label: "x²",    insert: "^2",     autoClose: false },
+  { label: "xⁿ",    insert: "^(",     autoClose: true  },
+  { label: "|x|",   insert: "abs(",   autoClose: true  },
+  { label: "sin",   insert: "sin(",   autoClose: true  },
+  { label: "cos",   insert: "cos(",   autoClose: true  },
+  { label: "tan",   insert: "tan(",   autoClose: true  },
+  { label: "asin",  insert: "asin(",  autoClose: true  },
+  { label: "acos",  insert: "acos(",  autoClose: true  },
+  { label: "ln",    insert: "ln(",    autoClose: true  },
+  { label: "log₁₀", insert: "log₁₀(", autoClose: true  },
+  { label: "eˣ",    insert: "exp(",   autoClose: true  },
+  { label: "e",     insert: "e",      autoClose: false },
+  { label: "(  )",  insert: "(",      autoClose: true  },
+];
+
 const FX_PRESETS = [
-  { label: "√(x+5)",   value: "sqrt(x+5)" },
+  { label: "√(x+5)",   value: "√(x+5)" },
   { label: "x²+2x",    value: "x^2 + 2*x" },
   { label: "sin(x)",   value: "sin(x)" },
   { label: "e^(−x²)",  value: "exp(-x^2)" },
   { label: "1/(1+x²)", value: "1/(1+x^2)" },
 ];
+
+/* ══════════════════════════════════════════
+   SCIENTIFIC INPUT — tomado del primer código
+   y adaptado a la paleta clara del segundo
+══════════════════════════════════════════ */
+function ScientificInput({ value, onChange, m }) {
+  const inputRef = useRef(null);
+
+  const insertAtCursor = (snippet, autoClose) => {
+    const el = inputRef.current;
+    if (!el) return;
+    const s = el.selectionStart;
+    const e = el.selectionEnd;
+    const frag = autoClose ? snippet + ")" : snippet;
+    const newVal = value.slice(0, s) + frag + value.slice(e);
+    onChange(newVal);
+    requestAnimationFrame(() => {
+      const pos = s + frag.length - (autoClose ? 1 : 0);
+      el.setSelectionRange(pos, pos);
+      el.focus();
+    });
+  };
+
+  const deleteAtCursor = () => {
+    const el = inputRef.current;
+    if (!el) return;
+    const s = el.selectionStart;
+    const e = el.selectionEnd;
+    let newVal, newPos;
+    if (s === e && s > 0) {
+      newVal = value.slice(0, s - 1) + value.slice(s);
+      newPos = s - 1;
+    } else {
+      newVal = value.slice(0, s) + value.slice(e);
+      newPos = s;
+    }
+    onChange(newVal);
+    requestAnimationFrame(() => {
+      el.setSelectionRange(newPos, newPos);
+      el.focus();
+    });
+  };
+
+  return (
+    <div>
+      {/* Teclado científico */}
+      <div style={{ display: "flex", flexWrap: "wrap", gap: 5, marginBottom: 10 }}>
+        {SCI_KEYS.map(k => (
+          <button
+            key={k.label}
+            type="button"
+            onClick={() => insertAtCursor(k.insert, k.autoClose)}
+            style={{
+              padding: "5px 11px",
+              borderRadius: 9,
+              cursor: "pointer",
+              border: `1.5px solid ${m.border}`,
+              background: m.soft,
+              color: m.accent,
+              fontSize: 11,
+              fontFamily: "'Fira Code', 'DM Mono', monospace",
+              fontWeight: 700,
+              transition: "all 0.18s ease",
+            }}
+            onMouseEnter={e => {
+              e.currentTarget.style.background = m.accent;
+              e.currentTarget.style.color = "white";
+              e.currentTarget.style.borderColor = m.accent;
+            }}
+            onMouseLeave={e => {
+              e.currentTarget.style.background = m.soft;
+              e.currentTarget.style.color = m.accent;
+              e.currentTarget.style.borderColor = m.border;
+            }}
+          >
+            {k.label}
+          </button>
+        ))}
+
+        {/* Botón borrar */}
+        <button
+          type="button"
+          onClick={deleteAtCursor}
+          style={{
+            padding: "5px 11px",
+            borderRadius: 9,
+            cursor: "pointer",
+            border: "1.5px solid #FECACA",
+            background: "#FEF2F2",
+            color: "#DC2626",
+            fontSize: 11,
+            fontFamily: "'Fira Code', 'DM Mono', monospace",
+            fontWeight: 700,
+            transition: "all 0.18s ease",
+          }}
+          onMouseEnter={e => {
+            e.currentTarget.style.background = "#DC2626";
+            e.currentTarget.style.color = "white";
+            e.currentTarget.style.borderColor = "#DC2626";
+          }}
+          onMouseLeave={e => {
+            e.currentTarget.style.background = "#FEF2F2";
+            e.currentTarget.style.color = "#DC2626";
+            e.currentTarget.style.borderColor = "#FECACA";
+          }}
+        >
+          ⌫
+        </button>
+      </div>
+
+      {/* Input principal */}
+      <input
+        ref={inputRef}
+        value={value}
+        onChange={e => onChange(e.target.value)}
+        style={{
+          width: "100%",
+          padding: "10px 13px",
+          borderRadius: 10,
+          border: `1.5px solid #e2e8f0`,
+          background: "rgba(248,250,252,0.9)",
+          fontSize: 13,
+          fontFamily: "'Fira Code', 'DM Mono', monospace",
+          color: "#0f172a",
+          outline: "none",
+          boxSizing: "border-box",
+          transition: "border-color 0.2s ease, background 0.2s ease",
+        }}
+        placeholder="ej. √(x+5) o usa los botones"
+        onFocus={e => {
+          e.target.style.borderColor = m.accent;
+          e.target.style.background = m.soft;
+        }}
+        onBlur={e => {
+          e.target.style.borderColor = "#e2e8f0";
+          e.target.style.background = "rgba(248,250,252,0.9)";
+        }}
+      />
+
+      {/* Preview conversión mathjs */}
+      {value && (
+        <div style={{
+          marginTop: 7,
+          fontSize: 10,
+          fontFamily: "'Fira Code', 'DM Mono', monospace",
+          color: "#94a3b8",
+          display: "flex",
+          alignItems: "center",
+          gap: 6,
+        }}>
+          <span style={{ color: "#cbd5e1", fontWeight: 700 }}>mathjs →</span>
+          <span style={{ color: m.accent, fontWeight: 700 }}>{toMathJS(value)}</span>
+        </div>
+      )}
+    </div>
+  );
+}
 
 /* ══════════════════════════════════════════
    HEADER CANVAS (oscuro, animado)
@@ -216,8 +410,6 @@ function HeaderCanvas({ m }) {
 
 /* ══════════════════════════════════════════
    BODY CANVAS — PREMIUM ANIMADO
-   Mesh warp · Orbs multicapa · Rayos de luz
-   Fluid lines · Partículas · Vignette
 ══════════════════════════════════════════ */
 function BodyCanvas({ m }) {
   const canvasRef = useRef(null);
@@ -230,7 +422,6 @@ function BodyCanvas({ m }) {
     const ctx = canvas.getContext("2d");
     let raf, W, H;
 
-    // === Mesh grid warp
     const COLS = 18, ROWS = 10;
     const mesh = [];
     for (let r = 0; r <= ROWS; r++) for (let c = 0; c <= COLS; c++) {
@@ -244,7 +435,6 @@ function BodyCanvas({ m }) {
       });
     }
 
-    // === Orbs luminosas multicapa
     const orbs = Array.from({ length: 9 }, () => ({
       x: Math.random(), y: Math.random(),
       r: 160 + Math.random() * 180,
@@ -255,7 +445,6 @@ function BodyCanvas({ m }) {
       hOff: (Math.random() - 0.5) * 35,
     }));
 
-    // === Fluid sinusoidal lines
     const fluidLines = Array.from({ length: 7 }, (_, i) => ({
       seed: Math.random() * 1000,
       spd: 0.00018 + i * 0.00004,
@@ -265,7 +454,6 @@ function BodyCanvas({ m }) {
       w: 1.2 - i * 0.1,
     }));
 
-    // === Partículas flotantes
     const parts = Array.from({ length: 80 }, () => ({
       x: Math.random(), y: Math.random(),
       r: 0.7 + Math.random() * 2,
@@ -276,7 +464,6 @@ function BodyCanvas({ m }) {
       a: 0.08 + Math.random() * 0.22,
     }));
 
-    // === Rayos de luz diagonales sutiles
     const beams = Array.from({ length: 4 }, (_, i) => ({
       x: 0.1 + i * 0.28,
       ph: Math.random() * Math.PI * 2,
@@ -306,12 +493,9 @@ function BodyCanvas({ m }) {
       const hue = mRef.current.hue;
 
       ctx.clearRect(0, 0, W, H);
-
-      // Base blanca
       ctx.fillStyle = "#FFFFFF";
       ctx.fillRect(0, 0, W, H);
 
-      // ── Rayos de luz verticales pulsantes
       beams.forEach(b => {
         const pulse = 0.018 + Math.sin(b.ph + t * b.ps * 100) * 0.009;
         b.ph += b.ps;
@@ -325,28 +509,24 @@ function BodyCanvas({ m }) {
         ctx.save(); ctx.fillStyle = grad; ctx.fillRect(0, 0, W, H); ctx.restore();
       });
 
-      // ── Orbs multicapa con núcleo especular
       orbs.forEach(o => {
         o.x += o.vx; o.y += o.vy; o.ph += o.ps;
         if (o.x < -0.3) o.x = 1.3; if (o.x > 1.3) o.x = -0.3;
         if (o.y < -0.3) o.y = 1.3; if (o.y > 1.3) o.y = -0.3;
         const p = 0.032 + Math.sin(o.ph) * 0.014;
         const cx = o.x * W, cy = o.y * H;
-        // Halo exterior difuso
         const g1 = ctx.createRadialGradient(cx, cy, 0, cx, cy, o.r);
         g1.addColorStop(0, `hsla(${hue + o.hOff},85%,72%,${p})`);
         g1.addColorStop(0.4, `hsla(${hue + o.hOff + 15},75%,78%,${p * 0.55})`);
         g1.addColorStop(0.75, `hsla(${hue + o.hOff},65%,85%,${p * 0.2})`);
         g1.addColorStop(1, "transparent");
         ctx.fillStyle = g1; ctx.beginPath(); ctx.arc(cx, cy, o.r, 0, Math.PI * 2); ctx.fill();
-        // Núcleo especular brillante
         const g2 = ctx.createRadialGradient(cx - o.r * 0.15, cy - o.r * 0.15, 0, cx, cy, o.r * 0.35);
         g2.addColorStop(0, `hsla(${hue + o.hOff},95%,92%,${p * 1.8})`);
         g2.addColorStop(1, "transparent");
         ctx.fillStyle = g2; ctx.beginPath(); ctx.arc(cx, cy, o.r * 0.5, 0, Math.PI * 2); ctx.fill();
       });
 
-      // ── Mesh warp orgánica
       ctx.lineWidth = 0.4;
       for (let r = 0; r < ROWS; r++) {
         for (let c = 0; c < COLS; c++) {
@@ -364,7 +544,6 @@ function BodyCanvas({ m }) {
         }
       }
 
-      // ── Fluid lines con gradiente lateral
       fluidLines.forEach(fl => {
         ctx.lineWidth = fl.w;
         const opBase = 0.06 + (1 - fl.yRat) * 0.08;
@@ -386,7 +565,6 @@ function BodyCanvas({ m }) {
         ctx.strokeStyle = lg; ctx.stroke();
       });
 
-      // ── Partículas flotantes + conexiones
       parts.forEach(p => {
         p.x += p.vx; p.y += p.vy; p.ph += p.ps;
         if (p.x < 0) p.x = 1; if (p.x > 1) p.x = 0;
@@ -412,7 +590,6 @@ function BodyCanvas({ m }) {
         ctx.beginPath(); ctx.arc(p.x * W, p.y * H, p.r, 0, Math.PI * 2); ctx.fill();
       });
 
-      // ── Cuadrícula de puntos
       const gs = 52;
       ctx.fillStyle = `hsla(${hue},50%,50%,0.07)`;
       for (let gx = gs / 2; gx <= W; gx += gs) {
@@ -421,7 +598,6 @@ function BodyCanvas({ m }) {
         }
       }
 
-      // ── Vignette perimetral suave
       const vg = ctx.createRadialGradient(W / 2, H / 2, H * 0.2, W / 2, H / 2, H * 0.85);
       vg.addColorStop(0, "transparent");
       vg.addColorStop(1, `hsla(${hue},30%,88%,0.18)`);
@@ -469,7 +645,7 @@ function IntegralChart({ funcion, limiteA, limiteB, tabla, metodo, m }) {
     try {
       const a = parseFloat(limiteA), b = parseFloat(limiteB);
       if (isNaN(a) || isNaN(b) || a >= b) return null;
-      const expr = math.compile(funcion);
+      const expr = math.compile(toMathJS(funcion));
       const pts = [];
       for (let i = 0; i <= 200; i++) {
         const x = a + (b - a) * (i / 200);
@@ -660,7 +836,7 @@ function Card({ children, style = {} }) {
 export default function App() {
   const [tab, setTab] = useState("sim");
   const [metodo, setMetodo] = useState("simpson13");
-  const [funcion, setFuncion] = useState("sqrt(x + 5)");
+  const [funcion, setFuncion] = useState("√(x+5)");
   const [limiteA, setLimiteA] = useState("0");
   const [limiteB, setLimiteB] = useState("19");
   const [nVal, setNVal] = useState(6);
@@ -695,7 +871,8 @@ export default function App() {
         let n = m.fixN(nVal);
         setNVal(n);
         const dlt = (b - a) / n;
-        const expr = math.compile(funcion);
+        // ── CONVERSIÓN: display → mathjs antes de compilar ──
+        const expr = math.compile(toMathJS(funcion));
         const f = x => {
           const r = expr.evaluate({ x });
           if (typeof r === "object" && r.isComplex) throw new Error("Valor complejo.");
@@ -720,7 +897,6 @@ export default function App() {
   return (
     <div style={{ fontFamily: "'DM Sans', system-ui, sans-serif", minHeight: "100vh", color: "#0f172a", position: "relative", overflowX: "hidden" }}>
 
-      {/* Fondo premium animado (fixed, detrás de todo) */}
       <BodyCanvas m={m} />
 
       {/* ─── HEADER ─── */}
@@ -789,7 +965,7 @@ export default function App() {
 
       {/* ─── SIMULADOR ─── */}
       {tab === "sim" && (
-        <div style={{ maxWidth: 1200, margin: "0 auto", padding: "20px 24px 60px", display: "grid", gridTemplateColumns: "360px 1fr", gap: 18, alignItems: "start", position: "relative", zIndex: 1 }}>
+        <div style={{ maxWidth: 1200, margin: "0 auto", padding: "20px 24px 60px", display: "grid", gridTemplateColumns: "380px 1fr", gap: 18, alignItems: "start", position: "relative", zIndex: 1 }}>
 
           {/* LEFT PANEL */}
           <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
@@ -817,6 +993,7 @@ export default function App() {
             <Card style={{ padding: 18 }}>
               <p style={{ fontSize: 9, fontWeight: 800, color: "#94a3b8", textTransform: "uppercase", letterSpacing: "0.14em", margin: "0 0 14px" }}>Parámetros de Entrada</p>
 
+              {/* Presets */}
               <p style={{ fontSize: 9, color: "#94a3b8", fontWeight: 700, marginBottom: 7, textTransform: "uppercase", letterSpacing: "0.09em" }}>Preajustes f(x)</p>
               <div style={{ display: "flex", flexWrap: "wrap", gap: 5, marginBottom: 14 }}>
                 {FX_PRESETS.map(p => (
@@ -825,12 +1002,17 @@ export default function App() {
                 ))}
               </div>
 
-              <label style={{ display: "block", fontSize: 9, fontWeight: 700, color: "#94a3b8", marginBottom: 5, textTransform: "uppercase", letterSpacing: "0.08em" }}>Función f(x)</label>
-              <input value={funcion} onChange={e => { setFuncion(e.target.value); reset(); }}
-                style={{ width: "100%", padding: "10px 13px", borderRadius: 10, border: "1.5px solid #e2e8f0", background: "rgba(248,250,252,0.9)", fontSize: 13, fontFamily: "monospace", color: "#0f172a", outline: "none", boxSizing: "border-box", marginBottom: 14, transition: "border-color 0.2s ease" }}
-                placeholder="ej. sqrt(x+5)"
-                onFocus={e => { e.target.style.borderColor = m.accent; e.target.style.background = m.soft; }}
-                onBlur={e => { e.target.style.borderColor = "#e2e8f0"; e.target.style.background = "rgba(248,250,252,0.9)"; }} />
+              {/* ── ETIQUETA + TECLADO CIENTÍFICO ── */}
+              <label style={{ display: "block", fontSize: 9, fontWeight: 700, color: "#94a3b8", marginBottom: 10, textTransform: "uppercase", letterSpacing: "0.08em" }}>
+                Función objetivo f(x)
+              </label>
+              <div style={{ marginBottom: 14 }}>
+                <ScientificInput
+                  value={funcion}
+                  onChange={(v) => { setFuncion(v); reset(); }}
+                  m={m}
+                />
+              </div>
 
               <div style={{ display: "flex", gap: 10, marginBottom: 14 }}>
                 <Stepper label="Límite inferior (a)" value={limiteA} onChange={v => { setLimiteA(v); reset(); }} />
@@ -917,8 +1099,8 @@ export default function App() {
                 <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 9, marginBottom: 16 }}>
                   {[
                     { label: "Diferencial Δ", value: delta?.toFixed(6), big: false },
-                    { label: "∫ Resultado", value: <CountUp value={result} decimals={8} />, big: true },
-                    { label: "Σ Acumulada", value: sumatoria?.toFixed(8), big: false },
+                    { label: "∫ Resultado",   value: <CountUp value={result} decimals={8} />, big: true },
+                    { label: "Σ Acumulada",   value: sumatoria?.toFixed(8), big: false },
                     { label: "Subintervalos", value: tabla.length - 1, big: false },
                   ].map((kpi, i) => (
                     <div key={i} style={{ background: kpi.big ? m.soft : "rgba(248,250,252,0.9)", borderRadius: 11, padding: kpi.big ? "14px 16px" : "11px 13px", border: `1px solid ${kpi.big ? m.border : "#f1f5f9"}` }}>
@@ -982,9 +1164,7 @@ export default function App() {
           </Card>
           <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 14 }}>
             {Object.entries(METHODS).map(([key, md]) => (
-              <Card key={key} style={{ padding: 22, gridColumn: key === "abierto" ? "1 / -1" : "auto", cursor: "pointer", transition: "transform 0.2s ease, box-shadow 0.2s ease" }}
-                onMouseEnter={e => { e.currentTarget.style.transform = "translateY(-2px)"; e.currentTarget.style.boxShadow = `0 10px 28px ${md.accent}18`; }}
-                onMouseLeave={e => { e.currentTarget.style.transform = "none"; e.currentTarget.style.boxShadow = ""; }}>
+              <Card key={key} style={{ padding: 22, gridColumn: key === "abierto" ? "1 / -1" : "auto", cursor: "pointer", transition: "transform 0.2s ease, box-shadow 0.2s ease" }}>
                 <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 12 }}>
                   <div style={{ width: 42, height: 42, borderRadius: 11, background: md.soft, border: `1.5px solid ${md.border}`, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 17, fontWeight: 900, color: md.accent }}>{md.icon}</div>
                   <div>
@@ -1008,7 +1188,7 @@ export default function App() {
       {showTeam && <TeamModal onClose={() => setShowTeam(false)} m={m} />}
 
       <style>{`
-        @import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;700;900&display=swap');
+        @import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;700;900&family=Fira+Code:wght@400;700&display=swap');
         @keyframes slideUp  { from{opacity:0;transform:translateY(14px)}to{opacity:1;transform:translateY(0)} }
         @keyframes popIn    { from{opacity:0;transform:scale(0.93)}to{opacity:1;transform:scale(1)} }
         @keyframes spin     { to{transform:rotate(360deg)} }
