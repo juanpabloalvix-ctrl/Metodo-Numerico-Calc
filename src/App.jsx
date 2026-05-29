@@ -1,10 +1,4 @@
-'ENDOFFILE'
-// ── ARCHIVO COMPLETO — PEGAR EN TU PROYECTO ──
-// Fixes: título corregido con key={metodo} para forzar re-mount
-// Mejora: fondo premium con canvas multi-layer (aurora + orbes + constelación)
-
 import { useState, useEffect, useRef, useMemo, useCallback } from "react";
-import PropTypes from "prop-types";
 import * as math from "mathjs";
 
 const TEAM = [
@@ -18,8 +12,8 @@ const METHODS = {
   simpson13: {
     title: "Simpson 1/3", subtitle: "Newton-Cotes cerrado",
     desc: "Aproximación parabólica por pares. Requiere número par de subintervalos.",
-    restriccion: "n debe ser par",
-    color: "#2563eb", accent: "#1e3a8a", accentDark: "#60a5fa", icon: "∫",
+    restriccion: "n par", icon: "⅓", hue: 220,
+    accent: "#2563EB", soft: "#DBEAFE", text: "#1E3A8A", border: "#93C5FD", bg: "#EFF6FF",
     formulaShort: "I = Δ/3 · [f(x₀) + 4f(x₁) + 2f(x₂) + 4f(x₃) + ··· + f(xₙ)]",
     coeffRule: (i, n) => i === 0 || i === n ? 1 : i % 2 !== 0 ? 4 : 2,
     compute: (delta, sum) => (delta / 3) * sum,
@@ -28,8 +22,8 @@ const METHODS = {
   simpson38: {
     title: "Simpson 3/8", subtitle: "Newton-Cotes cerrado",
     desc: "Aproximación cúbica con 4 puntos. Requiere múltiplos de 3 subintervalos.",
-    restriccion: "n múltiplo de 3",
-    color: "#7c3aed", accent: "#3b0764", accentDark: "#c4b5fd", icon: "⅜",
+    restriccion: "n múltiplo de 3", icon: "⅜", hue: 270,
+    accent: "#7C3AED", soft: "#EDE9FE", text: "#3B0764", border: "#C4B5FD", bg: "#F5F3FF",
     formulaShort: "I = 3Δ/8 · [f(x₁) + 3f(x₂) + 3f(x₃) + f(x₄)]",
     coeffRule: (i, n) => i === 0 || i === n ? 1 : i % 3 === 0 ? 2 : 3,
     compute: (delta, sum) => (3 * delta / 8) * sum,
@@ -38,9 +32,9 @@ const METHODS = {
   trapezoidal: {
     title: "Trapezoidal", subtitle: "Regla compuesta",
     desc: "Aproxima el área bajo la curva con trapecios. Soporta cualquier n ≥ 1.",
-    restriccion: "n ≥ 1 (libre)",
-    color: "#0891b2", accent: "#164e63", accentDark: "#67e8f9", icon: "⌗",
-    formulaShort: "I = Δ/2 · [f(x₀) + 2f(x₁) + 2f(x₂) + ··· + 2f(xₙ₋₁) + f(xₙ)]",
+    restriccion: "n ≥ 1", icon: "⌗", hue: 195,
+    accent: "#0891B2", soft: "#CFFAFE", text: "#164E63", border: "#67E8F9", bg: "#ECFEFF",
+    formulaShort: "I = Δ/2 · [f(x₀) + 2f(x₁) + ··· + 2f(xₙ₋₁) + f(xₙ)]",
     coeffRule: (i, n) => i === 0 || i === n ? 1 : 2,
     compute: (delta, sum) => (delta / 2) * sum,
     fixN: (n) => n,
@@ -48,18 +42,18 @@ const METHODS = {
   boole: {
     title: "Boole", subtitle: "Newton-Cotes orden 4",
     desc: "Regla cerrada de quinto orden. Fijo en 4 subintervalos (5 puntos).",
-    restriccion: "n = 4 (fijo)",
-    color: "#be185d", accent: "#500724", accentDark: "#f9a8d4", icon: "B",
+    restriccion: "n = 4 fijo", icon: "B", hue: 340,
+    accent: "#BE185D", soft: "#FCE7F3", text: "#500724", border: "#F9A8D4", bg: "#FFF0F6",
     formulaShort: "I = 2Δ/45 · [7f(x₁) + 32f(x₂) + 12f(x₃) + 32f(x₄) + 7f(x₅)]",
     coeffRule: (i) => [7, 32, 12, 32, 7][i],
     compute: (delta, sum) => (2 * delta / 45) * sum,
     fixN: () => 4,
   },
   abierto: {
-    title: "Simpson Abierto", subtitle: "Regla compuesta",
+    title: "Fórmula Abierta", subtitle: "Regla compuesta",
     desc: "Esquema compuesto alternante (1, 4, 2, 4, ...). n par requerido.",
-    restriccion: "n debe ser par",
-    color: "#059669", accent: "#022c22", accentDark: "#6ee7b7", icon: "∑",
+    restriccion: "n par", icon: "∑", hue: 155,
+    accent: "#059669", soft: "#D1FAE5", text: "#022C22", border: "#6EE7B7", bg: "#ECFDF5",
     formulaShort: "I = Δ/3 · [f(x₀) + 4f(x₁) + 2f(x₂) + 4f(x₃) + ··· + f(xₙ)]",
     coeffRule: (i, n) => i === 0 || i === n ? 1 : i % 2 !== 0 ? 4 : 2,
     compute: (delta, sum) => (delta / 3) * sum,
@@ -75,210 +69,388 @@ const FX_PRESETS = [
   { label: "1/(1+x²)", value: "1/(1+x^2)" },
 ];
 
-/* ══════════════════════════════════════════════════════
-   FONDO PREMIUM MULTI-LAYER
-══════════════════════════════════════════════════════ */
-function PremiumBackground({ activeColor }) {
+/* ══════════════════════════════════════════
+   HEADER CANVAS (oscuro, animado)
+══════════════════════════════════════════ */
+function HeaderCanvas({ m }) {
   const canvasRef = useRef(null);
-  const colorRef  = useRef(activeColor);
-  useEffect(() => { colorRef.current = activeColor; }, [activeColor]);
+  const mRef = useRef(m);
+  useEffect(() => { mRef.current = m; }, [m]);
 
   useEffect(() => {
     const canvas = canvasRef.current;
     if (!canvas) return;
     const ctx = canvas.getContext("2d");
-    const resize = () => { canvas.width = window.innerWidth; canvas.height = window.innerHeight; };
+    let raf, W, H;
+
+    const waves = Array.from({ length: 5 }, (_, i) => ({
+      phase: Math.random() * Math.PI * 2,
+      speed: 0.004 + i * 0.002,
+      amp: 18 + i * 8,
+      freq: 0.006 - i * 0.0008,
+      yRatio: 0.2 + i * 0.18,
+      opacity: 0.12 - i * 0.018,
+    }));
+
+    const nodes = Array.from({ length: 30 }, () => ({
+      x: Math.random(), y: Math.random(),
+      r: Math.random() * 3 + 1.5,
+      vx: (Math.random() - 0.5) * 0.0003,
+      vy: (Math.random() - 0.5) * 0.0002,
+      alpha: Math.random() * 0.5 + 0.2,
+      ph: Math.random() * Math.PI * 2,
+      ps: 0.02 + Math.random() * 0.03,
+    }));
+
+    const gridLines = Array.from({ length: 7 }, (_, i) => ({
+      type: i < 4 ? "h" : "v",
+      ratio: i < 4 ? (i + 1) / 5 : (i - 3) / 4,
+    }));
+
+    const resize = () => {
+      W = canvas.offsetWidth; H = canvas.offsetHeight;
+      canvas.width = W * devicePixelRatio; canvas.height = H * devicePixelRatio;
+      ctx.scale(devicePixelRatio, devicePixelRatio);
+    };
     resize();
-    window.addEventListener("resize", resize);
+    const ro = new ResizeObserver(resize);
+    ro.observe(canvas);
 
-    const hexNodes = Array.from({ length: 55 }, () => ({
-      x: Math.random() * window.innerWidth,
-      y: Math.random() * window.innerHeight,
-      vx: (Math.random() - 0.5) * 0.18,
-      vy: (Math.random() - 0.5) * 0.14,
-      r:  Math.random() * 2.2 + 0.6,
+    const loop = (ts) => {
+      if (!W || !H) { raf = requestAnimationFrame(loop); return; }
+      const mm = mRef.current;
+      const hue = mm.hue;
+      ctx.clearRect(0, 0, W, H);
+      ctx.fillStyle = `hsl(${hue}, 40%, 8%)`;
+      ctx.fillRect(0, 0, W, H);
+      const rg = ctx.createRadialGradient(W * 0.25, H * 0.5, 0, W * 0.25, H * 0.5, W * 0.6);
+      rg.addColorStop(0, `hsla(${hue}, 80%, 55%, 0.18)`);
+      rg.addColorStop(1, "transparent");
+      ctx.fillStyle = rg; ctx.fillRect(0, 0, W, H);
+      const rg2 = ctx.createRadialGradient(W * 0.85, H * 0.3, 0, W * 0.85, H * 0.3, W * 0.4);
+      rg2.addColorStop(0, `hsla(${hue + 40}, 70%, 60%, 0.12)`);
+      rg2.addColorStop(1, "transparent");
+      ctx.fillStyle = rg2; ctx.fillRect(0, 0, W, H);
+      ctx.fillStyle = `hsla(${hue}, 50%, 70%, 0.08)`;
+      for (let gx = 0; gx <= W; gx += 36) for (let gy = 0; gy <= H; gy += 36) {
+        ctx.beginPath(); ctx.arc(gx, gy, 0.8, 0, Math.PI * 2); ctx.fill();
+      }
+      gridLines.forEach(gl => {
+        ctx.save(); ctx.strokeStyle = `hsla(${hue}, 60%, 65%, 0.07)`;
+        ctx.lineWidth = 0.5; ctx.setLineDash([4, 8]); ctx.beginPath();
+        if (gl.type === "h") { ctx.moveTo(0, H * gl.ratio); ctx.lineTo(W, H * gl.ratio); }
+        else { ctx.moveTo(W * gl.ratio, 0); ctx.lineTo(W * gl.ratio, H); }
+        ctx.stroke(); ctx.restore();
+      });
+      const t = ts * 0.001;
+      waves.forEach(w => {
+        ctx.save(); ctx.strokeStyle = `hsla(${hue}, 85%, 65%, ${w.opacity})`;
+        ctx.lineWidth = 1.5; ctx.beginPath();
+        for (let px = 0; px <= W; px += 2) {
+          const py = H * w.yRatio + Math.sin(px * w.freq + w.phase + t * w.speed * 100) * w.amp;
+          px === 0 ? ctx.moveTo(px, py) : ctx.lineTo(px, py);
+        }
+        ctx.stroke(); ctx.restore();
+      });
+      nodes.forEach(n => {
+        n.x += n.vx; n.y += n.vy; n.ph += n.ps;
+        if (n.x < 0) n.x = 1; if (n.x > 1) n.x = 0;
+        if (n.y < 0) n.y = 1; if (n.y > 1) n.y = 0;
+      });
+      for (let i = 0; i < nodes.length; i++) for (let j = i + 1; j < nodes.length; j++) {
+        const dx = (nodes[i].x - nodes[j].x) * W, dy = (nodes[i].y - nodes[j].y) * H;
+        const dist = Math.sqrt(dx * dx + dy * dy);
+        if (dist < 120) {
+          ctx.save(); ctx.strokeStyle = `hsla(${hue}, 70%, 65%, ${(1 - dist / 120) * 0.12})`;
+          ctx.lineWidth = 0.5; ctx.beginPath();
+          ctx.moveTo(nodes[i].x * W, nodes[i].y * H); ctx.lineTo(nodes[j].x * W, nodes[j].y * H);
+          ctx.stroke(); ctx.restore();
+        }
+      }
+      nodes.forEach(n => {
+        const pulse = 0.4 + Math.sin(n.ph) * 0.3;
+        ctx.save(); ctx.globalAlpha = n.alpha * pulse;
+        ctx.fillStyle = `hsl(${hue}, 80%, 70%)`;
+        ctx.beginPath(); ctx.arc(n.x * W, n.y * H, n.r, 0, Math.PI * 2); ctx.fill(); ctx.restore();
+      });
+      ctx.save(); ctx.strokeStyle = `hsla(${hue}, 90%, 70%, 0.35)`; ctx.lineWidth = 2; ctx.beginPath();
+      const curveX = W * 0.55, curveW = W * 0.42;
+      for (let i = 0; i <= 80; i++) {
+        const px = curveX + (i / 80) * curveW, rel = i / 80;
+        const py = H * 0.5 - (Math.sin(rel * Math.PI) * H * 0.32) - (Math.sin(rel * Math.PI * 2) * H * 0.08);
+        i === 0 ? ctx.moveTo(px, py) : ctx.lineTo(px, py);
+      }
+      ctx.stroke();
+      ctx.beginPath();
+      for (let i = 0; i <= 80; i++) {
+        const px = curveX + (i / 80) * curveW, rel = i / 80;
+        const py = H * 0.5 - (Math.sin(rel * Math.PI) * H * 0.32) - (Math.sin(rel * Math.PI * 2) * H * 0.08);
+        i === 0 ? ctx.moveTo(px, py) : ctx.lineTo(px, py);
+      }
+      ctx.lineTo(curveX + curveW, H * 0.5); ctx.lineTo(curveX, H * 0.5); ctx.closePath();
+      const fg = ctx.createLinearGradient(0, H * 0.18, 0, H * 0.5);
+      fg.addColorStop(0, `hsla(${hue}, 85%, 65%, 0.22)`);
+      fg.addColorStop(1, `hsla(${hue}, 85%, 65%, 0.03)`);
+      ctx.fillStyle = fg; ctx.fill(); ctx.restore();
+      for (let s = 0; s <= 6; s++) {
+        const rel = s / 6, px = curveX + rel * curveW;
+        const py = H * 0.5 - (Math.sin(rel * Math.PI) * H * 0.32) - (Math.sin(rel * Math.PI * 2) * H * 0.08);
+        ctx.save(); ctx.fillStyle = "white"; ctx.globalAlpha = 0.85;
+        ctx.beginPath(); ctx.arc(px, py, 3.5, 0, Math.PI * 2); ctx.fill();
+        ctx.fillStyle = `hsl(${hue}, 80%, 60%)`; ctx.globalAlpha = 1;
+        ctx.beginPath(); ctx.arc(px, py, 2, 0, Math.PI * 2); ctx.fill();
+        ctx.strokeStyle = `hsla(${hue}, 70%, 60%, 0.25)`;
+        ctx.lineWidth = 0.8; ctx.setLineDash([3, 4]);
+        ctx.beginPath(); ctx.moveTo(px, py); ctx.lineTo(px, H * 0.5); ctx.stroke(); ctx.restore();
+      }
+      ctx.save(); ctx.strokeStyle = `hsla(${hue}, 60%, 65%, 0.3)`; ctx.lineWidth = 1;
+      ctx.beginPath(); ctx.moveTo(curveX - 10, H * 0.5); ctx.lineTo(curveX + curveW + 10, H * 0.5); ctx.stroke(); ctx.restore();
+      raf = requestAnimationFrame(loop);
+    };
+    raf = requestAnimationFrame(loop);
+    return () => { cancelAnimationFrame(raf); ro.disconnect(); };
+  }, []);
+
+  return <canvas ref={canvasRef} style={{ position: "absolute", inset: 0, width: "100%", height: "100%", pointerEvents: "none" }} />;
+}
+
+/* ══════════════════════════════════════════
+   BODY CANVAS — PREMIUM ANIMADO
+   Mesh warp · Orbs multicapa · Rayos de luz
+   Fluid lines · Partículas · Vignette
+══════════════════════════════════════════ */
+function BodyCanvas({ m }) {
+  const canvasRef = useRef(null);
+  const mRef = useRef(m);
+  useEffect(() => { mRef.current = m; }, [m]);
+
+  useEffect(() => {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    const ctx = canvas.getContext("2d");
+    let raf, W, H;
+
+    // === Mesh grid warp
+    const COLS = 18, ROWS = 10;
+    const mesh = [];
+    for (let r = 0; r <= ROWS; r++) for (let c = 0; c <= COLS; c++) {
+      mesh.push({
+        bx: c / COLS, by: r / ROWS,
+        ph: Math.random() * Math.PI * 2,
+        amp: 0.012 + Math.random() * 0.018,
+        spd: 0.0004 + Math.random() * 0.0003,
+        ox: (Math.random() - 0.5) * 0.018,
+        oy: (Math.random() - 0.5) * 0.014,
+      });
+    }
+
+    // === Orbs luminosas multicapa
+    const orbs = Array.from({ length: 9 }, () => ({
+      x: Math.random(), y: Math.random(),
+      r: 160 + Math.random() * 180,
+      vx: (Math.random() - 0.5) * 0.00012,
+      vy: (Math.random() - 0.5) * 0.00009,
       ph: Math.random() * Math.PI * 2,
-      ps: Math.random() * 0.012 + 0.005,
-      tier: Math.floor(Math.random() * 3),
+      ps: 0.002 + Math.random() * 0.003,
+      hOff: (Math.random() - 0.5) * 35,
     }));
 
-    const stars = Array.from({ length: 180 }, () => ({
-      x: Math.random() * window.innerWidth,
-      y: Math.random() * window.innerHeight,
-      r:  Math.random() * 0.9 + 0.1,
-      op: Math.random() * 0.4 + 0.05,
-      ph: Math.random() * Math.PI * 2,
-      ps: Math.random() * 0.006 + 0.002,
+    // === Fluid sinusoidal lines
+    const fluidLines = Array.from({ length: 7 }, (_, i) => ({
+      seed: Math.random() * 1000,
+      spd: 0.00018 + i * 0.00004,
+      yRat: 0.08 + i * 0.12,
+      amp: 28 + i * 14,
+      freq: 0.0045 - i * 0.0003,
+      w: 1.2 - i * 0.1,
     }));
 
-    const bands = [
-      { oy: 0.28, amp: 0.09, freq: 0.0007, spd: 0.00035, phase: 0,   w: 0.38, cIdx: 0 },
-      { oy: 0.62, amp: 0.07, freq: 0.0009, spd: 0.00028, phase: 2.1, w: 0.30, cIdx: 1 },
-      { oy: 0.45, amp: 0.05, freq: 0.0011, spd: 0.00042, phase: 4.3, w: 0.22, cIdx: 2 },
-    ];
+    // === Partículas flotantes
+    const parts = Array.from({ length: 80 }, () => ({
+      x: Math.random(), y: Math.random(),
+      r: 0.7 + Math.random() * 2,
+      vx: (Math.random() - 0.5) * 0.0002,
+      vy: (Math.random() - 0.5) * 0.00015,
+      ph: Math.random() * Math.PI * 2,
+      ps: 0.008 + Math.random() * 0.015,
+      a: 0.08 + Math.random() * 0.22,
+    }));
 
-    const orbs = [
-      { cx: 0.72, cy: 0.22, orbitR: 0.14, spd: 0.00022, phase: 0,    r: 180, op: 0.10, cIdx: 0 },
-      { cx: 0.18, cy: 0.68, orbitR: 0.10, spd: 0.00017, phase: 2.09, r: 140, op: 0.08, cIdx: 1 },
-      { cx: 0.50, cy: 0.08, orbitR: 0.08, spd: 0.00030, phase: 4.18, r: 110, op: 0.07, cIdx: 2 },
-      { cx: 0.88, cy: 0.82, orbitR: 0.06, spd: 0.00018, phase: 1.05, r:  90, op: 0.06, cIdx: 0 },
-    ];
+    // === Rayos de luz diagonales sutiles
+    const beams = Array.from({ length: 4 }, (_, i) => ({
+      x: 0.1 + i * 0.28,
+      ph: Math.random() * Math.PI * 2,
+      ps: 0.0005 + i * 0.0002,
+      w: 40 + Math.random() * 60,
+    }));
 
-    let raf;
-    const loop = (ts = 0) => {
-      const W = canvas.width, H = canvas.height;
-      const col = colorRef.current;
-      const cr = parseInt(col.slice(1,3),16);
-      const cg = parseInt(col.slice(3,5),16);
-      const cb = parseInt(col.slice(5,7),16);
-      const palette = [`${cr},${cg},${cb}`, "124,58,237", "8,145,178"];
+    const resize = () => {
+      W = canvas.offsetWidth; H = canvas.offsetHeight;
+      canvas.width = W * devicePixelRatio; canvas.height = H * devicePixelRatio;
+      ctx.scale(devicePixelRatio, devicePixelRatio);
+    };
+    resize();
+    const ro = new ResizeObserver(resize);
+    ro.observe(canvas);
+
+    const getPos = (r, c, t) => {
+      const node = mesh[r * (COLS + 1) + c];
+      const dx = Math.sin(t * node.spd * 100 + node.ph) * node.amp * W;
+      const dy = Math.cos(t * node.spd * 80 + node.ph * 1.3) * node.amp * H;
+      return { x: node.bx * W + dx + node.ox * W, y: node.by * H + dy + node.oy * H };
+    };
+
+    const loop = (ts) => {
+      const t = ts * 0.001;
+      if (!W || !H) { raf = requestAnimationFrame(loop); return; }
+      const hue = mRef.current.hue;
 
       ctx.clearRect(0, 0, W, H);
 
-      /* deep space */
-      const base = ctx.createRadialGradient(W*0.5, H*0.5, 0, W*0.5, H*0.5, Math.max(W,H)*0.75);
-      base.addColorStop(0, "rgba(4,8,20,1)");
-      base.addColorStop(0.6, "rgba(2,5,14,1)");
-      base.addColorStop(1, "rgba(1,3,8,1)");
-      ctx.fillStyle = base;
+      // Base blanca
+      ctx.fillStyle = "#FFFFFF";
       ctx.fillRect(0, 0, W, H);
 
-      /* orb glows */
+      // ── Rayos de luz verticales pulsantes
+      beams.forEach(b => {
+        const pulse = 0.018 + Math.sin(b.ph + t * b.ps * 100) * 0.009;
+        b.ph += b.ps;
+        const cx = b.x * W;
+        const grad = ctx.createLinearGradient(cx - b.w, 0, cx + b.w, H);
+        grad.addColorStop(0, "transparent");
+        grad.addColorStop(0.3, `hsla(${hue},80%,65%,${pulse})`);
+        grad.addColorStop(0.5, `hsla(${hue + 20},75%,70%,${pulse * 1.4})`);
+        grad.addColorStop(0.7, `hsla(${hue},80%,65%,${pulse})`);
+        grad.addColorStop(1, "transparent");
+        ctx.save(); ctx.fillStyle = grad; ctx.fillRect(0, 0, W, H); ctx.restore();
+      });
+
+      // ── Orbs multicapa con núcleo especular
       orbs.forEach(o => {
-        const angle = ts * o.spd + o.phase;
-        const ox = W * (o.cx + Math.cos(angle) * o.orbitR);
-        const oy = H * (o.cy + Math.sin(angle) * o.orbitR * 0.55);
-        const rgb = palette[o.cIdx % palette.length];
-        const g = ctx.createRadialGradient(ox, oy, 0, ox, oy, W * (o.r/1000));
-        g.addColorStop(0,   `rgba(${rgb},${o.op})`);
-        g.addColorStop(0.5, `rgba(${rgb},${o.op * 0.4})`);
-        g.addColorStop(1,   `rgba(${rgb},0)`);
-        ctx.fillStyle = g;
-        ctx.fillRect(0, 0, W, H);
+        o.x += o.vx; o.y += o.vy; o.ph += o.ps;
+        if (o.x < -0.3) o.x = 1.3; if (o.x > 1.3) o.x = -0.3;
+        if (o.y < -0.3) o.y = 1.3; if (o.y > 1.3) o.y = -0.3;
+        const p = 0.032 + Math.sin(o.ph) * 0.014;
+        const cx = o.x * W, cy = o.y * H;
+        // Halo exterior difuso
+        const g1 = ctx.createRadialGradient(cx, cy, 0, cx, cy, o.r);
+        g1.addColorStop(0, `hsla(${hue + o.hOff},85%,72%,${p})`);
+        g1.addColorStop(0.4, `hsla(${hue + o.hOff + 15},75%,78%,${p * 0.55})`);
+        g1.addColorStop(0.75, `hsla(${hue + o.hOff},65%,85%,${p * 0.2})`);
+        g1.addColorStop(1, "transparent");
+        ctx.fillStyle = g1; ctx.beginPath(); ctx.arc(cx, cy, o.r, 0, Math.PI * 2); ctx.fill();
+        // Núcleo especular brillante
+        const g2 = ctx.createRadialGradient(cx - o.r * 0.15, cy - o.r * 0.15, 0, cx, cy, o.r * 0.35);
+        g2.addColorStop(0, `hsla(${hue + o.hOff},95%,92%,${p * 1.8})`);
+        g2.addColorStop(1, "transparent");
+        ctx.fillStyle = g2; ctx.beginPath(); ctx.arc(cx, cy, o.r * 0.5, 0, Math.PI * 2); ctx.fill();
       });
 
-      /* aurora bands */
-      bands.forEach(b => {
-        b.phase += b.spd;
-        const rgb = palette[b.cIdx % palette.length];
-        ctx.save();
-        ctx.globalAlpha = 0.055;
-        const path = new Path2D();
-        for (let x = 0; x <= W; x += 3) {
-          const y = H * b.oy + Math.sin(x * b.freq + b.phase) * H * b.amp
-                  + Math.sin(x * b.freq * 1.7 + b.phase * 1.3) * H * b.amp * 0.4;
-          if (x === 0) path.moveTo(x, y); else path.lineTo(x, y);
-        }
-        path.lineTo(W, H); path.lineTo(0, H); path.closePath();
-        const auroraGrad = ctx.createLinearGradient(0, H * b.oy - H*b.w*0.5, 0, H * b.oy + H*b.w*0.5);
-        auroraGrad.addColorStop(0, `rgba(${rgb},0)`);
-        auroraGrad.addColorStop(0.4, `rgba(${rgb},0.22)`);
-        auroraGrad.addColorStop(0.6, `rgba(${rgb},0.22)`);
-        auroraGrad.addColorStop(1, `rgba(${rgb},0)`);
-        ctx.fillStyle = auroraGrad;
-        ctx.fill(path);
-        ctx.restore();
-      });
-
-      /* stars */
-      stars.forEach(s => {
-        s.ph += s.ps;
-        ctx.save();
-        ctx.globalAlpha = Math.max(0, Math.min(0.6, s.op + Math.sin(s.ph) * 0.1));
-        ctx.fillStyle = "#dde8ff";
-        ctx.beginPath();
-        ctx.arc(s.x, s.y, s.r, 0, Math.PI * 2);
-        ctx.fill();
-        ctx.restore();
-      });
-
-      /* constellation lines */
-      for (let i = 0; i < hexNodes.length; i++) {
-        for (let j = i+1; j < hexNodes.length; j++) {
-          const a = hexNodes[i], b = hexNodes[j];
-          const dx = a.x - b.x, dy = a.y - b.y;
-          const d = Math.sqrt(dx*dx + dy*dy);
-          if (d < 100) {
-            ctx.save();
-            ctx.globalAlpha = (1 - d/100) * 0.18;
-            ctx.strokeStyle = `rgba(${palette[a.tier % 3]},1)`;
-            ctx.lineWidth = 0.5;
-            ctx.beginPath();
-            ctx.moveTo(a.x, a.y);
-            ctx.lineTo(b.x, b.y);
-            ctx.stroke();
-            ctx.restore();
-          }
+      // ── Mesh warp orgánica
+      ctx.lineWidth = 0.4;
+      for (let r = 0; r < ROWS; r++) {
+        for (let c = 0; c < COLS; c++) {
+          const p00 = getPos(r, c, t), p10 = getPos(r, c + 1, t);
+          const p01 = getPos(r + 1, c, t), p11 = getPos(r + 1, c + 1, t);
+          const mcx = (p00.x + p10.x + p01.x + p11.x) / 4;
+          const mcy = (p00.y + p10.y + p01.y + p11.y) / 4;
+          const distC = Math.sqrt((mcx / W - 0.5) ** 2 + (mcy / H - 0.5) ** 2);
+          const cellA = 0.04 + (1 - distC) * 0.06;
+          ctx.beginPath();
+          ctx.moveTo(p00.x, p00.y); ctx.lineTo(p10.x, p10.y);
+          ctx.lineTo(p11.x, p11.y); ctx.lineTo(p01.x, p01.y); ctx.closePath();
+          ctx.strokeStyle = `hsla(${hue},55%,55%,${cellA * 0.6})`;
+          ctx.stroke();
         }
       }
 
-      /* nodes */
-      hexNodes.forEach(n => {
-        n.x += n.vx; n.y += n.vy; n.ph += n.ps;
-        if (n.x < -20) n.x = W+20; if (n.x > W+20) n.x = -20;
-        if (n.y < -20) n.y = H+20; if (n.y > H+20) n.y = -20;
-        const rr = n.r + Math.sin(n.ph) * 0.6;
-        const ao = 0.15 + Math.sin(n.ph * 1.1) * 0.12;
-        const rgb = palette[n.tier % 3];
-        ctx.save();
-        ctx.globalAlpha = ao * 0.45;
-        const halo = ctx.createRadialGradient(n.x, n.y, 0, n.x, n.y, rr * 4);
-        halo.addColorStop(0, `rgba(${rgb},0.5)`);
-        halo.addColorStop(1, `rgba(${rgb},0)`);
-        ctx.fillStyle = halo;
+      // ── Fluid lines con gradiente lateral
+      fluidLines.forEach(fl => {
+        ctx.lineWidth = fl.w;
+        const opBase = 0.06 + (1 - fl.yRat) * 0.08;
         ctx.beginPath();
-        ctx.arc(n.x, n.y, rr * 4, 0, Math.PI*2);
-        ctx.fill();
-        ctx.globalAlpha = Math.min(0.9, ao + 0.25);
-        ctx.fillStyle = `rgba(${rgb},1)`;
-        ctx.beginPath();
-        ctx.arc(n.x, n.y, rr, 0, Math.PI*2);
-        ctx.fill();
-        ctx.restore();
+        for (let px = 0; px <= W; px += 2) {
+          const rel = px / W;
+          const py = H * fl.yRat
+            + Math.sin(rel * Math.PI * 3 + t * fl.spd * 100 + fl.seed) * fl.amp
+            + Math.sin(rel * Math.PI * 5.5 + t * fl.spd * 70 + fl.seed * 2) * fl.amp * 0.35
+            + Math.sin(rel * Math.PI * 1.8 + t * fl.spd * 40) * fl.amp * 0.5;
+          px === 0 ? ctx.moveTo(px, py) : ctx.lineTo(px, py);
+        }
+        const lg = ctx.createLinearGradient(0, 0, W, 0);
+        lg.addColorStop(0, "transparent");
+        lg.addColorStop(0.15, `hsla(${hue},75%,55%,${opBase})`);
+        lg.addColorStop(0.5, `hsla(${hue + 25},80%,60%,${opBase * 1.6})`);
+        lg.addColorStop(0.85, `hsla(${hue},75%,55%,${opBase})`);
+        lg.addColorStop(1, "transparent");
+        ctx.strokeStyle = lg; ctx.stroke();
       });
 
-      /* scanlines */
-      ctx.save();
-      ctx.globalAlpha = 0.018;
-      for (let y = 0; y < H; y += 3) { ctx.fillStyle = "rgba(0,0,0,1)"; ctx.fillRect(0, y, W, 1); }
-      ctx.restore();
+      // ── Partículas flotantes + conexiones
+      parts.forEach(p => {
+        p.x += p.vx; p.y += p.vy; p.ph += p.ps;
+        if (p.x < 0) p.x = 1; if (p.x > 1) p.x = 0;
+        if (p.y < 0) p.y = 1; if (p.y > 1) p.y = 0;
+      });
+      for (let i = 0; i < parts.length; i++) {
+        for (let j = i + 1; j < parts.length; j++) {
+          const dx = (parts[i].x - parts[j].x) * W, dy = (parts[i].y - parts[j].y) * H;
+          const d = Math.sqrt(dx * dx + dy * dy);
+          if (d < 80) {
+            ctx.strokeStyle = `hsla(${hue},60%,50%,${(1 - d / 80) * 0.06})`;
+            ctx.lineWidth = 0.5;
+            ctx.beginPath();
+            ctx.moveTo(parts[i].x * W, parts[i].y * H);
+            ctx.lineTo(parts[j].x * W, parts[j].y * H);
+            ctx.stroke();
+          }
+        }
+      }
+      parts.forEach(p => {
+        const a = p.a * (0.5 + Math.sin(p.ph) * 0.5);
+        ctx.fillStyle = `hsla(${hue},65%,50%,${a})`;
+        ctx.beginPath(); ctx.arc(p.x * W, p.y * H, p.r, 0, Math.PI * 2); ctx.fill();
+      });
 
-      /* vignette */
-      const vig = ctx.createRadialGradient(W*0.5, H*0.5, H*0.3, W*0.5, H*0.5, H*0.85);
-      vig.addColorStop(0, "rgba(0,0,0,0)");
-      vig.addColorStop(1, "rgba(0,0,0,0.72)");
-      ctx.fillStyle = vig;
-      ctx.fillRect(0, 0, W, H);
+      // ── Cuadrícula de puntos
+      const gs = 52;
+      ctx.fillStyle = `hsla(${hue},50%,50%,0.07)`;
+      for (let gx = gs / 2; gx <= W; gx += gs) {
+        for (let gy = gs / 2; gy <= H; gy += gs) {
+          ctx.beginPath(); ctx.arc(gx, gy, 0.9, 0, Math.PI * 2); ctx.fill();
+        }
+      }
+
+      // ── Vignette perimetral suave
+      const vg = ctx.createRadialGradient(W / 2, H / 2, H * 0.2, W / 2, H / 2, H * 0.85);
+      vg.addColorStop(0, "transparent");
+      vg.addColorStop(1, `hsla(${hue},30%,88%,0.18)`);
+      ctx.fillStyle = vg; ctx.fillRect(0, 0, W, H);
 
       raf = requestAnimationFrame(loop);
     };
-    loop();
-    return () => { cancelAnimationFrame(raf); window.removeEventListener("resize", resize); };
+    raf = requestAnimationFrame(loop);
+    return () => { cancelAnimationFrame(raf); ro.disconnect(); };
   }, []);
 
-  return <canvas ref={canvasRef} style={{ position:"fixed", inset:0, width:"100vw", height:"100vh", pointerEvents:"none", zIndex:0 }}/>;
-}
-PremiumBackground.propTypes = { activeColor: PropTypes.string };
-PremiumBackground.defaultProps = { activeColor: "#2563eb" };
-
-function GridOverlay() {
   return (
-    <div style={{ position:"fixed", inset:0, pointerEvents:"none", zIndex:1,
-      backgroundImage: ["linear-gradient(rgba(56,139,253,0.022) 1px, transparent 1px)","linear-gradient(90deg, rgba(56,139,253,0.022) 1px, transparent 1px)"].join(","),
-      backgroundSize:"56px 56px" }}/>
+    <canvas
+      ref={canvasRef}
+      style={{ position: "fixed", inset: 0, width: "100vw", height: "100vh", pointerEvents: "none", zIndex: 0 }}
+    />
   );
 }
 
-function CountUp({ value, decimals }) {
+/* ─── COUNT UP ─── */
+function CountUp({ value, decimals = 8 }) {
   const [display, setDisplay] = useState(0);
   const rafRef = useRef(null);
   useEffect(() => {
     if (value === null) return;
-    const end = value;
-    const startTime = performance.now();
+    const start = performance.now();
     const step = (now) => {
-      const p = Math.min((now - startTime) / 900, 1);
-      setDisplay(end * (1 - Math.pow(1 - p, 4)));
+      const p = Math.min((now - start) / 1200, 1);
+      setDisplay(value * (1 - Math.pow(1 - p, 4)));
       if (p < 1) rafRef.current = requestAnimationFrame(step);
     };
     rafRef.current = requestAnimationFrame(step);
@@ -287,12 +459,12 @@ function CountUp({ value, decimals }) {
   if (value === null) return <span>—</span>;
   return <span>{display.toFixed(decimals)}</span>;
 }
-CountUp.propTypes = { value: PropTypes.number, decimals: PropTypes.number };
-CountUp.defaultProps = { value: null, decimals: 8 };
 
-function IntegralChart({ funcion, limiteA, limiteB, tabla, metodo, color }) {
-  const W = 560, H = 280, PAD = { t: 24, r: 20, b: 40, l: 56 };
+/* ─── CHART ─── */
+function IntegralChart({ funcion, limiteA, limiteB, tabla, metodo, m }) {
+  const W = 560, H = 280, PAD = { t: 28, r: 20, b: 46, l: 60 };
   const innerW = W - PAD.l - PAD.r, innerH = H - PAD.t - PAD.b;
+
   const data = useMemo(() => {
     try {
       const a = parseFloat(limiteA), b = parseFloat(limiteB);
@@ -301,177 +473,205 @@ function IntegralChart({ funcion, limiteA, limiteB, tabla, metodo, color }) {
       const pts = [];
       for (let i = 0; i <= 200; i++) {
         const x = a + (b - a) * (i / 200);
-        try { const y = expr.evaluate({ x }); if (typeof y === "number" && isFinite(y)) pts.push({ x, y }); } catch { /**/ }
+        try {
+          const y = expr.evaluate({ x });
+          if (typeof y === "number" && isFinite(y)) pts.push({ x, y });
+        } catch {}
       }
       return pts;
     } catch { return null; }
   }, [funcion, limiteA, limiteB]);
 
-  if (!data || data.length < 2) return <div style={{ display:"flex", alignItems:"center", justifyContent:"center", height:H, color:"#334155", fontSize:13 }}>Sin datos para graficar</div>;
+  if (!data || data.length < 2) return (
+    <div style={{ height: H, display: "flex", alignItems: "center", justifyContent: "center", color: "#64748b", fontSize: 12, fontStyle: "italic" }}>
+      Sin datos para graficar
+    </div>
+  );
 
   const xs = data.map(d => d.x), ys = data.map(d => d.y);
   const minX = Math.min(...xs), maxX = Math.max(...xs);
-  const minY = Math.min(...ys, 0), maxY = Math.max(...ys);
+  const rawMinY = Math.min(...ys), rawMaxY = Math.max(...ys);
+  const pad = (rawMaxY - rawMinY) * 0.12 || 1;
+  const minY = Math.min(rawMinY - pad, 0), maxY = rawMaxY + pad;
   const rangeY = maxY - minY || 1;
-  const scaleX = x => PAD.l + ((x - minX) / (maxX - minX)) * innerW;
-  const scaleY = y => PAD.t + innerH - ((y - minY) / rangeY) * innerH;
-  const curvePath = data.map((p, i) => `${i===0?"M":"L"}${scaleX(p.x).toFixed(2)},${scaleY(p.y).toFixed(2)}`).join(" ");
-  const fillPath = `${curvePath} L${scaleX(data[data.length-1].x).toFixed(2)},${scaleY(0).toFixed(2)} L${scaleX(data[0].x).toFixed(2)},${scaleY(0).toFixed(2)} Z`;
-  const zeroY = scaleY(0);
-  const accentDark = METHODS[metodo]?.accentDark || color;
-  const yTicks = Array.from({ length: 6 }, (_, i) => minY + (rangeY * i) / 5);
-  const xTicks = Array.from({ length: 7 }, (_, i) => minX + ((maxX - minX) * i) / 6);
+  const sx = x => PAD.l + ((x - minX) / (maxX - minX)) * innerW;
+  const sy = y => PAD.t + innerH - ((y - minY) / rangeY) * innerH;
+  const curve = data.map((p, i) => `${i === 0 ? "M" : "L"}${sx(p.x).toFixed(2)},${sy(p.y).toFixed(2)}`).join(" ");
+  const fill = `${curve} L${sx(data[data.length - 1].x).toFixed(2)},${sy(0).toFixed(2)} L${sx(data[0].x).toFixed(2)},${sy(0).toFixed(2)} Z`;
+  const zeroY = sy(0);
+  const yTicks = Array.from({ length: 5 }, (_, i) => minY + (rangeY * i) / 4);
+  const xTicks = Array.from({ length: 6 }, (_, i) => minX + ((maxX - minX) * i) / 5);
 
   return (
-    <svg viewBox={`0 0 ${W} ${H}`} style={{ width:"100%", height:"auto", display:"block" }}>
+    <svg viewBox={`0 0 ${W} ${H}`} style={{ width: "100%", height: "auto", display: "block" }}>
       <defs>
-        <linearGradient id="fillGrad" x1="0" y1="0" x2="0" y2="1">
-          <stop offset="0%" stopColor={color} stopOpacity="0.38"/><stop offset="100%" stopColor={color} stopOpacity="0.02"/>
+        <linearGradient id={`fg${metodo}`} x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0%" stopColor={m.accent} stopOpacity="0.28" />
+          <stop offset="100%" stopColor={m.accent} stopOpacity="0.03" />
         </linearGradient>
-        <linearGradient id="curveGrad" x1="0" y1="0" x2="1" y2="0">
-          <stop offset="0%" stopColor={accentDark}/><stop offset="100%" stopColor={color}/>
+        <linearGradient id={`chartBg${metodo}`} x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0%" stopColor="#F8FAFF" stopOpacity="1" />
+          <stop offset="100%" stopColor="#FFFFFF" stopOpacity="1" />
         </linearGradient>
-        <filter id="lineGlow"><feGaussianBlur stdDeviation="3" result="blur"/><feMerge><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge></filter>
-        <clipPath id="clip"><rect x={PAD.l} y={PAD.t} width={innerW} height={innerH}/></clipPath>
+        <clipPath id={`clip${metodo}`}><rect x={PAD.l} y={PAD.t} width={innerW} height={innerH} /></clipPath>
+        <filter id="softShadow">
+          <feDropShadow dx="0" dy="2" stdDeviation="3" floodColor={m.accent} floodOpacity="0.18" />
+        </filter>
       </defs>
-      {yTicks.map((v, i) => <line key={i} x1={PAD.l} y1={scaleY(v)} x2={PAD.l+innerW} y2={scaleY(v)} stroke="rgba(148,163,184,0.12)" strokeWidth="0.8" strokeDasharray="4 5"/>)}
-      {xTicks.map((v, i) => <line key={i} x1={scaleX(v)} y1={PAD.t} x2={scaleX(v)} y2={PAD.t+innerH} stroke="rgba(148,163,184,0.12)" strokeWidth="0.8" strokeDasharray="4 5"/>)}
-      {zeroY >= PAD.t && zeroY <= PAD.t+innerH && <line x1={PAD.l} y1={zeroY} x2={PAD.l+innerW} y2={zeroY} stroke="rgba(148,163,184,0.35)" strokeWidth="1"/>}
-      <g clipPath="url(#clip)">
-        {(tabla||[]).slice(0,-1).map((row, i) => { const nr=(tabla||[])[i+1]; if(!nr) return null; const y0=scaleY(0); return <polygon key={i} points={`${scaleX(row.xi)},${y0} ${scaleX(row.xi)},${scaleY(row.fxi)} ${scaleX(nr.xi)},${scaleY(nr.fxi)} ${scaleX(nr.xi)},${y0}`} fill={color} fillOpacity="0.16" stroke={color} strokeOpacity="0.45" strokeWidth="0.7"/>; })}
-        <path d={fillPath} fill="url(#fillGrad)"/>
-        <path d={curvePath} fill="none" stroke="url(#curveGrad)" strokeWidth="2.8" strokeLinecap="round" strokeLinejoin="round" filter="url(#lineGlow)"/>
+      <rect x={PAD.l} y={PAD.t} width={innerW} height={innerH} fill={`url(#chartBg${metodo})`} rx="6" />
+      {yTicks.map((v, i) => (
+        <line key={i} x1={PAD.l} y1={sy(v)} x2={PAD.l + innerW} y2={sy(v)}
+          stroke={i === 0 || i === 4 ? "rgba(0,0,0,0.1)" : "rgba(0,0,0,0.05)"}
+          strokeWidth="0.8" strokeDasharray={i === 0 || i === 4 ? "none" : "4 6"} />
+      ))}
+      {xTicks.map((v, i) => (
+        <line key={i} x1={sx(v)} y1={PAD.t} x2={sx(v)} y2={PAD.t + innerH}
+          stroke="rgba(0,0,0,0.05)" strokeWidth="0.8" strokeDasharray="4 6" />
+      ))}
+      {zeroY >= PAD.t && zeroY <= PAD.t + innerH && (
+        <line x1={PAD.l} y1={zeroY} x2={PAD.l + innerW} y2={zeroY}
+          stroke="rgba(0,0,0,0.2)" strokeWidth="1.2" />
+      )}
+      <g clipPath={`url(#clip${metodo})`}>
+        {(tabla || []).slice(0, -1).map((row, i) => {
+          const nr = (tabla || [])[i + 1];
+          if (!nr) return null;
+          return (
+            <polygon key={i}
+              points={`${sx(row.xi)},${sy(0)} ${sx(row.xi)},${sy(row.fxi)} ${sx(nr.xi)},${sy(nr.fxi)} ${sx(nr.xi)},${sy(0)}`}
+              fill={m.accent} fillOpacity="0.13" stroke={m.accent} strokeOpacity="0.45" strokeWidth="1" />
+          );
+        })}
+        <path d={fill} fill={`url(#fg${metodo})`} />
+        <path d={curve} fill="none" stroke={m.accent} strokeWidth="2.8"
+          strokeLinecap="round" strokeLinejoin="round" filter="url(#softShadow)" />
       </g>
-      {(tabla||[]).map((row, i) => { const cx=scaleX(row.xi), cy=scaleY(row.fxi); if(cx<PAD.l||cx>PAD.l+innerW) return null; return <g key={i}><circle cx={cx} cy={cy} r="7" fill="none" stroke={accentDark} strokeWidth="1" strokeOpacity="0.4"/><circle cx={cx} cy={cy} r="4.5" fill="#070d1a" stroke={accentDark} strokeWidth="1.8"/><circle cx={cx} cy={cy} r="2" fill={accentDark}/></g>; })}
-      <line x1={PAD.l} y1={PAD.t} x2={PAD.l} y2={PAD.t+innerH} stroke="rgba(71,85,105,0.6)" strokeWidth="1.2"/>
-      <line x1={PAD.l} y1={PAD.t+innerH} x2={PAD.l+innerW} y2={PAD.t+innerH} stroke="rgba(71,85,105,0.6)" strokeWidth="1.2"/>
-      {yTicks.map((v, i) => <text key={i} x={PAD.l-6} y={scaleY(v)+4} textAnchor="end" fontSize="8.5" fill="rgba(100,116,139,0.8)" fontFamily="monospace">{v.toFixed(1)}</text>)}
-      {xTicks.map((v, i) => <text key={i} x={scaleX(v)} y={PAD.t+innerH+15} textAnchor="middle" fontSize="8.5" fill="rgba(100,116,139,0.8)" fontFamily="monospace">{v.toFixed(1)}</text>)}
+      {(tabla || []).map((row, i) => {
+        const cx = sx(row.xi), cy = sy(row.fxi);
+        if (cx < PAD.l - 2 || cx > PAD.l + innerW + 2) return null;
+        return (
+          <g key={i}>
+            <circle cx={cx} cy={cy} r="7" fill={m.accent} fillOpacity="0.12" />
+            <circle cx={cx} cy={cy} r="4.5" fill="white" stroke={m.accent} strokeWidth="2" />
+            <circle cx={cx} cy={cy} r="2" fill={m.accent} />
+          </g>
+        );
+      })}
+      <line x1={PAD.l} y1={PAD.t} x2={PAD.l} y2={PAD.t + innerH} stroke="#334155" strokeWidth="1.5" />
+      <line x1={PAD.l} y1={PAD.t + innerH} x2={PAD.l + innerW} y2={PAD.t + innerH} stroke="#334155" strokeWidth="1.5" />
+      {yTicks.map((v, i) => (
+        <g key={i}>
+          <rect x={2} y={sy(v) - 8} width={PAD.l - 8} height={16} fill="rgba(255,255,255,0.85)" rx="3" />
+          <text x={PAD.l - 6} y={sy(v) + 4} textAnchor="end" fontSize="10" fill="#334155"
+            fontFamily="'DM Mono', 'Fira Code', monospace" fontWeight="600">{v.toFixed(2)}</text>
+          <line x1={PAD.l - 3} y1={sy(v)} x2={PAD.l} y2={sy(v)} stroke="#334155" strokeWidth="1" />
+        </g>
+      ))}
+      {xTicks.map((v, i) => (
+        <g key={i}>
+          <rect x={sx(v) - 20} y={PAD.t + innerH + 8} width={40} height={16} fill="rgba(255,255,255,0.85)" rx="3" />
+          <text x={sx(v)} y={PAD.t + innerH + 20} textAnchor="middle" fontSize="10" fill="#334155"
+            fontFamily="'DM Mono', 'Fira Code', monospace" fontWeight="600">{v.toFixed(1)}</text>
+          <line x1={sx(v)} y1={PAD.t + innerH} x2={sx(v)} y2={PAD.t + innerH + 4} stroke="#334155" strokeWidth="1" />
+        </g>
+      ))}
+      <text x={PAD.l + innerW / 2} y={H - 2} textAnchor="middle" fontSize="10" fill="#64748b" fontFamily="system-ui" fontWeight="600">x</text>
+      <text x={12} y={PAD.t + innerH / 2} textAnchor="middle" fontSize="10" fill="#64748b" fontFamily="system-ui" fontWeight="600"
+        transform={`rotate(-90, 12, ${PAD.t + innerH / 2})`}>f(x)</text>
     </svg>
   );
 }
-IntegralChart.propTypes = { funcion: PropTypes.string.isRequired, limiteA: PropTypes.string.isRequired, limiteB: PropTypes.string.isRequired, metodo: PropTypes.string.isRequired, color: PropTypes.string.isRequired, tabla: PropTypes.arrayOf(PropTypes.shape({ xi: PropTypes.number, fxi: PropTypes.number })) };
-IntegralChart.defaultProps = { tabla: [] };
 
-function LimitInputDark({ label, value, onChange }) {
-  const nv = parseFloat(value);
+/* ─── TEAM MODAL ─── */
+function TeamModal({ onClose, m }) {
   return (
-    <div style={{ minWidth: 0 }}>
-      <label style={{ display:"block", fontSize:10, fontWeight:700, color:"#475569", marginBottom:7, letterSpacing:"0.06em", textTransform:"uppercase" }}>{label}</label>
-      <div style={{ display:"flex", alignItems:"center", border:"1px solid rgba(255,255,255,0.09)", borderRadius:11, background:"rgba(255,255,255,0.04)", overflow:"hidden" }}>
-        <button onClick={() => onChange(String((isNaN(nv)?0:nv)-1))} style={{ width:36, minWidth:36, height:42, border:"none", background:"transparent", cursor:"pointer", fontSize:18, color:"#475569", flexShrink:0 }}>−</button>
-        <input value={value} onChange={e => onChange(e.target.value)} style={{ flex:1, minWidth:0, width:0, border:"none", background:"transparent", textAlign:"center", fontSize:14, fontWeight:700, fontFamily:"'Fira Code', monospace", color:"#e2e8f0", outline:"none", padding:"10px 2px" }}/>
-        <button onClick={() => onChange(String((isNaN(nv)?0:nv)+1))} style={{ width:36, minWidth:36, height:42, border:"none", background:"transparent", cursor:"pointer", fontSize:18, color:"#475569", flexShrink:0 }}>+</button>
+    <div style={{ position: "fixed", inset: 0, zIndex: 2000, display: "flex", alignItems: "center", justifyContent: "center" }} onClick={onClose}>
+      <div style={{ position: "absolute", inset: 0, background: "rgba(0,0,0,0.5)", backdropFilter: "blur(12px)" }} />
+      <div
+        style={{ position: "relative", background: "white", borderRadius: 24, padding: "36px 40px", width: 440, maxWidth: "92vw", boxShadow: "0 40px 80px rgba(0,0,0,0.18)", animation: "popIn 0.4s cubic-bezier(0.34,1.56,0.64,1)" }}
+        onClick={e => e.stopPropagation()}
+      >
+        <div style={{ position: "absolute", top: 0, left: "20%", right: "20%", height: 3, background: `linear-gradient(90deg, transparent, ${m.accent}, transparent)`, borderRadius: "0 0 6px 6px" }} />
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 24 }}>
+          <div>
+            <p style={{ fontSize: 10, color: "#94a3b8", fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.1em", margin: "0 0 6px" }}>Métodos Numéricos · Comfenalco</p>
+            <h3 style={{ color: "#0f172a", fontSize: 20, fontWeight: 800, margin: 0 }}>Equipo de Desarrollo</h3>
+          </div>
+          <button onClick={onClose} style={{ width: 34, height: 34, borderRadius: "50%", border: "1px solid #e2e8f0", background: "#f8fafc", color: "#94a3b8", cursor: "pointer", fontSize: 14, display: "flex", alignItems: "center", justifyContent: "center" }}>✕</button>
+        </div>
+        <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+          {TEAM.map((member, i) => (
+            <div key={i} style={{ display: "flex", alignItems: "center", gap: 14, background: "#f8fafc", borderRadius: 14, padding: "12px 16px", border: "1px solid #f1f5f9", animation: `slideUp 0.35s ease ${i * 0.07}s both` }}>
+              <div style={{ width: 42, height: 42, borderRadius: "50%", flexShrink: 0, background: `hsl(${member.hue},70%,92%)`, border: `2px solid hsl(${member.hue},65%,70%)`, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 13, fontWeight: 800, color: `hsl(${member.hue},60%,35%)` }}>{member.initials}</div>
+              <div style={{ flex: 1 }}>
+                <p style={{ color: "#0f172a", fontSize: 13, fontWeight: 700, margin: 0 }}>{member.name}</p>
+                <p style={{ color: "#94a3b8", fontSize: 10, margin: "3px 0 0" }}>Ingeniería · Métodos Numéricos</p>
+              </div>
+              <div style={{ width: 7, height: 7, borderRadius: "50%", background: `hsl(${member.hue},65%,55%)`, animation: `dotPulse 2s ease-in-out ${i * 0.3}s infinite` }} />
+            </div>
+          ))}
+        </div>
+        <div style={{ marginTop: 20, padding: "12px 16px", background: m.soft, border: `1px solid ${m.border}`, borderRadius: 12, textAlign: "center" }}>
+          <p style={{ color: m.text, fontSize: 11, margin: 0, fontWeight: 600 }}>Fundación Universitaria Tecnológico Comfenalco · 2026</p>
+        </div>
       </div>
     </div>
   );
 }
-LimitInputDark.propTypes = { label: PropTypes.string.isRequired, value: PropTypes.string.isRequired, onChange: PropTypes.func.isRequired };
 
-function NControlDark({ value, onChange, min, max, step, disabled, color, accentDark }) {
-  const clamp = v => Math.max(min, Math.min(max, v));
-  const pct = ((value - min) / (max - min)) * 100;
+/* ─── STEPPER ─── */
+function Stepper({ label, value, onChange }) {
+  const num = parseFloat(value);
   return (
-    <div style={{ userSelect:"none" }}>
-      <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:10 }}>
-        <span style={{ fontSize:10, fontWeight:700, color:"#475569", textTransform:"uppercase", letterSpacing:"0.06em" }}>Subintervalos (n)</span>
-        <span style={{ background:`${color}22`, color:accentDark, fontSize:12, fontWeight:900, padding:"3px 12px", borderRadius:50, fontFamily:"'Fira Code', monospace", border:`1px solid ${color}35` }}>n = {value}</span>
-      </div>
-      <div style={{ display:"flex", alignItems:"center", background:"rgba(255,255,255,0.04)", border:`1px solid ${disabled?"rgba(255,255,255,0.07)":color+"38"}`, borderRadius:14, overflow:"hidden" }}>
-        <button onClick={() => !disabled && onChange(clamp(value-step))} disabled={disabled||value<=min} style={{ width:46, height:46, border:"none", background:"transparent", cursor:disabled||value<=min?"not-allowed":"pointer", fontSize:22, color:disabled||value<=min?"#1e293b":accentDark, display:"flex", alignItems:"center", justifyContent:"center" }}>−</button>
-        <input type="number" value={value} onChange={e => { const p=parseInt(e.target.value,10); if(!isNaN(p)) onChange(clamp(p)); }} disabled={disabled} min={min} max={max} step={step} style={{ flex:1, height:46, border:"none", background:"transparent", textAlign:"center", fontSize:18, fontWeight:900, fontFamily:"'Fira Code', monospace", color:disabled?"#1e293b":"#f1f5f9", outline:"none", MozAppearance:"textfield" }}/>
-        <button onClick={() => !disabled && onChange(clamp(value+step))} disabled={disabled||value>=max} style={{ width:46, height:46, border:"none", background:"transparent", cursor:disabled||value>=max?"not-allowed":"pointer", fontSize:22, color:disabled||value>=max?"#1e293b":accentDark, display:"flex", alignItems:"center", justifyContent:"center" }}>+</button>
-      </div>
-      <div style={{ marginTop:14, position:"relative", height:22, display:"flex", alignItems:"center" }}>
-        <div style={{ position:"absolute", left:0, right:0, height:4, background:"rgba(255,255,255,0.07)", borderRadius:99 }}/>
-        <div style={{ position:"absolute", left:0, height:4, width:`${pct}%`, background:disabled?"#1e293b":`linear-gradient(90deg, ${color}60, ${color})`, borderRadius:99, transition:"width 0.3s" }}/>
-        <input type="range" min={min} max={max} step={step} value={value} disabled={disabled} onChange={e => onChange(parseInt(e.target.value,10))} style={{ position:"absolute", left:0, right:0, width:"100%", margin:0, opacity:0, height:22, cursor:disabled?"not-allowed":"pointer", zIndex:2 }}/>
-        <div style={{ position:"absolute", left:`calc(${pct}% - 11px)`, width:22, height:22, borderRadius:"50%", background:"#060b16", border:`2px solid ${disabled?"#1e293b":color}`, zIndex:1, pointerEvents:"none", transition:"left 0.3s" }}/>
+    <div style={{ display: "flex", flexDirection: "column", gap: 6, flex: 1, minWidth: 0 }}>
+      <label style={{ fontSize: 10, fontWeight: 700, color: "#64748b", textTransform: "uppercase", letterSpacing: "0.08em", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{label}</label>
+      <div style={{ display: "flex", alignItems: "center", border: "1.5px solid #e2e8f0", borderRadius: 11, background: "rgba(255,255,255,0.9)", overflow: "hidden", height: 42 }}>
+        <button onClick={() => onChange(String((isNaN(num) ? 0 : num) - 1))}
+          style={{ width: 38, height: "100%", minWidth: 38, border: "none", background: "transparent", cursor: "pointer", fontSize: 18, color: "#64748b", flexShrink: 0, display: "flex", alignItems: "center", justifyContent: "center", padding: 0 }}>−</button>
+        <input value={value} onChange={e => onChange(e.target.value)}
+          style={{ flex: 1, minWidth: 0, border: "none", background: "transparent", textAlign: "center", fontSize: 14, fontWeight: 700, fontFamily: "monospace", color: "#0f172a", outline: "none", padding: "0 4px" }} />
+        <button onClick={() => onChange(String((isNaN(num) ? 0 : num) + 1))}
+          style={{ width: 38, height: "100%", minWidth: 38, border: "none", background: "transparent", cursor: "pointer", fontSize: 18, color: "#64748b", flexShrink: 0, display: "flex", alignItems: "center", justifyContent: "center", padding: 0 }}>+</button>
       </div>
     </div>
   );
 }
-NControlDark.propTypes = { value: PropTypes.number.isRequired, onChange: PropTypes.func.isRequired, min: PropTypes.number.isRequired, max: PropTypes.number.isRequired, step: PropTypes.number.isRequired, disabled: PropTypes.bool, color: PropTypes.string.isRequired, accentDark: PropTypes.string.isRequired };
-NControlDark.defaultProps = { disabled: false };
 
-function GlassCard({ children, style = {}, glow = null, delay = 0 }) {
+/* ─── CARD ─── */
+function Card({ children, style = {} }) {
   return (
-    <div style={{ background:"rgba(5,10,24,0.78)", backdropFilter:"blur(22px) saturate(180%)", WebkitBackdropFilter:"blur(22px) saturate(180%)", borderRadius:20, border:"1px solid rgba(255,255,255,0.07)", boxShadow:["0 8px 40px rgba(0,0,0,0.55)", glow?`0 0 55px ${glow}15`:"", "inset 0 1px 0 rgba(255,255,255,0.05)"].filter(Boolean).join(", "), animation:`slideUp 0.55s cubic-bezier(0.22,1,0.36,1) ${delay}s both`, ...style }}>
+    <div style={{
+      background: "rgba(255,255,255,0.88)",
+      backdropFilter: "blur(18px)",
+      WebkitBackdropFilter: "blur(18px)",
+      borderRadius: 16,
+      border: "1px solid rgba(255,255,255,0.95)",
+      boxShadow: "0 4px 24px rgba(0,0,0,0.055), 0 1px 0 rgba(255,255,255,0.9) inset",
+      ...style
+    }}>
       {children}
     </div>
   );
 }
-GlassCard.propTypes = { children: PropTypes.node, style: PropTypes.object, glow: PropTypes.string, delay: PropTypes.number };
 
-function TeamModal({ onClose }) {
-  return (
-    <div style={{ position:"fixed", inset:0, zIndex:2000, display:"flex", alignItems:"center", justifyContent:"center" }} onClick={onClose}>
-      <div style={{ position:"absolute", inset:0, background:"rgba(2,6,15,0.88)", backdropFilter:"blur(18px)" }}/>
-      <div style={{ position:"relative", background:"linear-gradient(145deg, rgba(7,12,28,0.99) 0%, rgba(10,16,38,0.99) 100%)", border:"1px solid rgba(255,255,255,0.08)", borderRadius:28, padding:"36px 40px", width:440, maxWidth:"92vw", boxShadow:"0 50px 120px rgba(0,0,0,0.7)", animation:"popIn 0.4s cubic-bezier(0.34,1.56,0.64,1)" }} onClick={e => e.stopPropagation()}>
-        <div style={{ position:"absolute", top:0, left:"15%", right:"15%", height:2, background:"linear-gradient(90deg, transparent, rgba(37,99,235,0.8), rgba(124,58,237,0.6), transparent)", borderRadius:"0 0 4px 4px" }}/>
-        <div style={{ display:"flex", justifyContent:"space-between", alignItems:"flex-start", marginBottom:28 }}>
-          <div>
-            <div style={{ display:"flex", alignItems:"center", gap:8, marginBottom:10 }}>
-              <div style={{ width:6, height:6, borderRadius:"50%", background:"#22d3ee", animation:"dotPulse 2s ease-in-out infinite" }}/>
-              <span style={{ fontSize:9, color:"#475569", fontWeight:800, textTransform:"uppercase", letterSpacing:"0.14em" }}>Métodos Numéricos · Comfenalco</span>
-            </div>
-            <h3 style={{ color:"#f1f5f9", fontSize:20, fontWeight:800, margin:0 }}>Equipo de Desarrollo</h3>
-          </div>
-          <button onClick={onClose} style={{ width:34, height:34, borderRadius:"50%", border:"1px solid rgba(255,255,255,0.08)", background:"rgba(255,255,255,0.04)", color:"#64748b", cursor:"pointer", fontSize:15, display:"flex", alignItems:"center", justifyContent:"center" }}>✕</button>
-        </div>
-        <div style={{ display:"flex", flexDirection:"column", gap:10 }}>
-          {TEAM.map((member, i) => (
-            <div key={i} style={{ display:"flex", alignItems:"center", gap:16, background:"rgba(255,255,255,0.025)", border:"1px solid rgba(255,255,255,0.055)", borderRadius:16, padding:"14px 18px", animation:`slideUp 0.4s ease ${i*0.08}s both` }}>
-              <div style={{ width:44, height:44, borderRadius:"50%", flexShrink:0, background:`hsl(${member.hue},60%,10%)`, border:`2px solid hsl(${member.hue},65%,38%)`, display:"flex", alignItems:"center", justifyContent:"center", fontSize:13, fontWeight:800, color:`hsl(${member.hue},80%,72%)` }}>{member.initials}</div>
-              <div style={{ flex:1 }}>
-                <p style={{ color:"#e2e8f0", fontSize:13, fontWeight:700, margin:0 }}>{member.name}</p>
-                <p style={{ color:"#334155", fontSize:10, margin:"3px 0 0" }}>Ingeniería · Metodos Numéricos</p>
-              </div>
-              <div style={{ width:7, height:7, borderRadius:"50%", background:`hsl(${member.hue},70%,55%)`, animation:`dotPulse 2s ease-in-out ${i*0.3}s infinite`, flexShrink:0 }}/>
-            </div>
-          ))}
-        </div>
-        <div style={{ marginTop:22, padding:"14px 18px", background:"rgba(37,99,235,0.07)", border:"1px solid rgba(37,99,235,0.18)", borderRadius:14, textAlign:"center" }}>
-          <p style={{ color:"#334155", fontSize:11, margin:0 }}>Fundación Universitaria Tecnológico Comfenalco · 2026</p>
-        </div>
-      </div>
-    </div>
-  );
-}
-TeamModal.propTypes = { onClose: PropTypes.func.isRequired };
-
-function Ticker({ items }) {
-  const [idx, setIdx] = useState(0);
-  const [visible, setVisible] = useState(true);
-  useEffect(() => {
-    const id = setInterval(() => {
-      setVisible(false);
-      setTimeout(() => { setIdx(i => (i+1) % items.length); setVisible(true); }, 400);
-    }, 3200);
-    return () => clearInterval(id);
-  }, [items.length]);
-  return <span style={{ fontFamily:"monospace", fontSize:9, color:"rgba(96,165,250,0.55)", transition:"opacity 0.4s", opacity:visible?1:0 }}>{items[idx]}</span>;
-}
-Ticker.propTypes = { items: PropTypes.arrayOf(PropTypes.string).isRequired };
-
-/* ══════════════════════════════════════════════════════
+/* ══════════════════════════════════════════
    APP PRINCIPAL
-══════════════════════════════════════════════════════ */
+══════════════════════════════════════════ */
 export default function App() {
-  const [tab,       setTab]       = useState("sim");
-  const [metodo,    setMetodo]    = useState("simpson13");
-  const [funcion,   setFuncion]   = useState("sqrt(x + 5)");
-  const [limiteA,   setLimiteA]   = useState("0");
-  const [limiteB,   setLimiteB]   = useState("19");
-  const [nVal,      setNVal]      = useState(6);
-  const [showTeam,  setShowTeam]  = useState(false);
-  const [result,    setResult]    = useState(null);
-  const [tabla,     setTabla]     = useState([]);
-  const [delta,     setDelta]     = useState(null);
+  const [tab, setTab] = useState("sim");
+  const [metodo, setMetodo] = useState("simpson13");
+  const [funcion, setFuncion] = useState("sqrt(x + 5)");
+  const [limiteA, setLimiteA] = useState("0");
+  const [limiteB, setLimiteB] = useState("19");
+  const [nVal, setNVal] = useState(6);
+  const [showTeam, setShowTeam] = useState(false);
+  const [result, setResult] = useState(null);
+  const [tabla, setTabla] = useState([]);
+  const [delta, setDelta] = useState(null);
   const [sumatoria, setSumatoria] = useState(null);
-  const [error,     setError]     = useState("");
-  const [loading,   setLoading]   = useState(false);
-  const [time,      setTime]      = useState("");
+  const [error, setError] = useState("");
+  const [loading, setLoading] = useState(false);
+  const [time, setTime] = useState("");
 
   const m = METHODS[metodo];
 
@@ -483,6 +683,7 @@ export default function App() {
   }, []);
 
   const getStep = () => metodo === "simpson38" ? 3 : (metodo === "simpson13" || metodo === "abierto") ? 2 : 1;
+  const clamp = (v, mn, mx) => Math.max(mn, Math.min(mx, v));
 
   const calcular = useCallback(() => {
     setError(""); setLoading(true);
@@ -491,322 +692,335 @@ export default function App() {
         const a = parseFloat(limiteA), b = parseFloat(limiteB);
         if (isNaN(a) || isNaN(b)) throw new Error("Los límites deben ser valores numéricos válidos.");
         if (a >= b) throw new Error("El límite superior (b) debe ser mayor que el inferior (a).");
-        let n = m.fixN(nVal); setNVal(n);
+        let n = m.fixN(nVal);
+        setNVal(n);
         const dlt = (b - a) / n;
         const expr = math.compile(funcion);
-        const f = x => { const r = expr.evaluate({ x }); if (typeof r === "object" && r.isComplex) throw new Error("Valor complejo."); return r; };
+        const f = x => {
+          const r = expr.evaluate({ x });
+          if (typeof r === "object" && r.isComplex) throw new Error("Valor complejo.");
+          return r;
+        };
         let sum = 0, rows = [];
         for (let i = 0; i <= n; i++) {
-          const xi = a+i*dlt, fxi = f(xi), coef = m.coeffRule(i,n), parcial = coef*fxi;
+          const xi = a + i * dlt, fxi = f(xi), coef = m.coeffRule(i, n), parcial = coef * fxi;
           sum += parcial;
           rows.push({ i, xi, fxi, coef, parcial });
         }
         const integral = m.compute(dlt, sum);
         setDelta(dlt); setTabla(rows); setSumatoria(sum); setResult(integral);
-      } catch (e) { setError(e.message || "Error en la expresión."); }
-      finally { setLoading(false); }
-    }, 700);
+      } catch (e) {
+        setError(e.message || "Error en la expresión.");
+      } finally { setLoading(false); }
+    }, 600);
   }, [limiteA, limiteB, m, nVal, funcion]);
 
   const reset = () => { setResult(null); setTabla([]); setDelta(null); setSumatoria(null); setError(""); };
 
-  const tickerItems = [`∫ f(x)dx ≈ Σ wᵢf(xᵢ)`, `Δ = (b − a) / n`, `ERROR ~ O(h⁴)`, `Newton-Cotes · ${new Date().getFullYear()}`];
-
   return (
-    <div style={{ fontFamily:"'DM Sans', system-ui, sans-serif", background:"#020816", minHeight:"100vh", color:"#e2e8f0", position:"relative", overflowX:"hidden" }}>
+    <div style={{ fontFamily: "'DM Sans', system-ui, sans-serif", minHeight: "100vh", color: "#0f172a", position: "relative", overflowX: "hidden" }}>
 
-      <PremiumBackground activeColor={m.color} />
-      <GridOverlay />
-      <div style={{ position:"fixed", inset:0, background:"rgba(2,8,22,0.58)", pointerEvents:"none", zIndex:0 }}/>
+      {/* Fondo premium animado (fixed, detrás de todo) */}
+      <BodyCanvas m={m} />
 
-      {/* HEADER */}
-      <header style={{ position:"relative", zIndex:100, borderBottom:"1px solid rgba(255,255,255,0.05)" }}>
-        <div style={{ background:"rgba(2,8,22,0.92)", borderBottom:"1px solid rgba(255,255,255,0.04)", padding:"0 2.5rem", display:"flex", alignItems:"center", justifyContent:"space-between", height:32 }}>
-          <div style={{ display:"flex", alignItems:"center", gap:20 }}>
-            <div style={{ display:"flex", alignItems:"center", gap:6 }}>
-              <div style={{ width:5, height:5, borderRadius:"50%", background:"#22d3ee", animation:"dotPulse 2s ease-in-out infinite" }}/>
-              <span style={{ fontSize:9, color:"#1e3a5f", fontWeight:700, letterSpacing:"0.1em", textTransform:"uppercase" }}>SYS ONLINE</span>
+      {/* ─── HEADER ─── */}
+      <header style={{ position: "relative", overflow: "hidden", height: 204, background: `hsl(${m.hue}, 40%, 8%)`, transition: "background 0.8s ease", zIndex: 10 }}>
+        <HeaderCanvas m={m} />
+
+        <div style={{ position: "absolute", top: 0, left: 0, right: 0, zIndex: 10, display: "flex", alignItems: "center", justifyContent: "space-between", padding: "10px 28px", borderBottom: "1px solid rgba(255,255,255,0.07)" }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 16 }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+              <div style={{ width: 6, height: 6, borderRadius: "50%", background: "#4ade80", animation: "dotPulse 2s ease-in-out infinite" }} />
+              <span style={{ fontSize: 10, color: "rgba(255,255,255,0.5)", fontWeight: 600, letterSpacing: "0.1em", textTransform: "uppercase" }}>SISTEMA EN LÍNEA</span>
             </div>
-            <Ticker items={tickerItems} />
+            <span style={{ fontSize: 10, color: m.accent, fontFamily: "monospace", fontWeight: 700, background: `${m.accent}22`, padding: "2px 10px", borderRadius: 50, border: `1px solid ${m.accent}44` }}>
+              ∫ Newton-Cotes
+            </span>
           </div>
-          <div style={{ display:"flex", alignItems:"center", gap:16 }}>
-            <span style={{ fontSize:9, fontFamily:"monospace", color:"#1e3a5f" }}>UTC-5 · {time}</span>
-            <span style={{ fontSize:9, color:"#0f2443" }}>|</span>
-            <span style={{ fontSize:9, fontFamily:"monospace", color:"#1e3a5f" }}>MÉTODO · {metodo.toUpperCase()}</span>
+          <div style={{ display: "flex", alignItems: "center", gap: 14 }}>
+            <span style={{ fontSize: 10, fontFamily: "monospace", color: "rgba(255,255,255,0.35)" }}>UTC-5 · {time}</span>
+            <span style={{ fontSize: 10, fontFamily: "monospace", color: m.accent, fontWeight: 700, background: `${m.accent}22`, padding: "2px 10px", borderRadius: 50, border: `1px solid ${m.accent}44` }}>{metodo.toUpperCase()}</span>
           </div>
         </div>
 
-        <div style={{ position:"relative", padding:"2rem 2.5rem 1.8rem", overflow:"hidden" }}>
-          {[{top:0,left:0,borderTop:"1.5px solid",borderLeft:"1.5px solid"},{top:0,right:0,borderTop:"1.5px solid",borderRight:"1.5px solid"},{bottom:0,left:0,borderBottom:"1.5px solid",borderLeft:"1.5px solid"},{bottom:0,right:0,borderBottom:"1.5px solid",borderRight:"1.5px solid"}].map((s,i) => (
-            <div key={i} style={{ position:"absolute", width:72, height:72, borderColor:`${m.color}55`, ...s, pointerEvents:"none", zIndex:2, transition:"border-color 0.8s" }}/>
-          ))}
-          <div style={{ position:"absolute", bottom:0, left:"8%", right:"8%", height:1, background:`linear-gradient(90deg, transparent, ${m.color}70, rgba(124,58,237,0.5), ${m.color}70, transparent)`, transition:"background 0.8s" }}/>
+        <div style={{ position: "absolute", inset: 0, zIndex: 10, display: "flex", alignItems: "center", justifyContent: "space-between", padding: "0 28px", paddingTop: 34 }}>
+          <div>
+            <div style={{ display: "inline-flex", alignItems: "center", gap: 7, background: `${m.accent}22`, border: `1px solid ${m.accent}44`, borderRadius: 50, padding: "4px 14px", marginBottom: 12 }}>
+              <div style={{ width: 6, height: 6, borderRadius: "50%", background: m.accent, animation: "dotPulse 2.5s ease-in-out infinite" }} />
+              <span style={{ color: m.accent, fontSize: 9, fontWeight: 700, letterSpacing: "0.1em", textTransform: "uppercase" }}>Fundación Universitaria Tecnológico Comfenalco</span>
+            </div>
+            <h1 style={{ fontSize: "clamp(1.6rem, 3.5vw, 2.4rem)", fontWeight: 900, margin: "0 0 8px", lineHeight: 1.1, letterSpacing: "-0.03em", color: "white" }}>
+              Sistema de <span style={{ color: m.accent, transition: "color 0.6s ease" }}>Integración Numérica</span>
+            </h1>
+            <p style={{ color: "rgba(255,255,255,0.45)", fontSize: 12, margin: 0, fontWeight: 500 }}>Trabajo Final · Métodos Numéricos · Newton-Cotes</p>
+          </div>
 
-          <div style={{ maxWidth:1200, margin:"0 auto", display:"flex", justifyContent:"space-between", alignItems:"center", gap:24, flexWrap:"wrap" }}>
-            <div>
-              <div style={{ display:"inline-flex", alignItems:"center", gap:8, background:"rgba(37,99,235,0.1)", border:"1px solid rgba(37,99,235,0.28)", borderRadius:50, padding:"5px 18px", marginBottom:18 }}>
-                <div style={{ width:7, height:7, borderRadius:"50%", background:"#38bdf8", animation:"dotPulse 2.5s ease-in-out infinite" }}/>
-                <span style={{ color:"#7dd3fc", fontSize:10, fontWeight:700, letterSpacing:"0.1em", textTransform:"uppercase" }}>Fundación Universitaria Tecnológico Comfenalco</span>
-              </div>
-
-              {/*
-                ════════════════════════════════════════════════
-                FIX DEL TÍTULO:
-                El bug ocurre porque WebkitTextFillColor: transparent
-                queda "pegado" cuando React reutiliza el nodo DOM al
-                cambiar sólo el color de fondo del gradiente.
-                Solución: key={metodo} fuerza a React a desmontar y
-                remontar el <span> completo al cambiar de método,
-                limpiando cualquier estado CSS residual del browser.
-                ════════════════════════════════════════════════
-              */}
-              <h1 style={{ color:"#f8fafc", fontSize:"clamp(1.7rem, 4.5vw, 2.8rem)", fontWeight:900, margin:"0 0 12px", lineHeight:1.08, letterSpacing:"-0.03em" }}>
-                Sistema de{" "}
-                <span
-                  key={metodo}
-                  style={{
-                    background: `linear-gradient(135deg, ${m.accentDark} 0%, ${m.color} 100%)`,
-                    WebkitBackgroundClip: "text",
-                    WebkitTextFillColor: "transparent",
-                    backgroundClip: "text",
-                    display: "inline",
-                  }}
-                >
-                  Integración Numérica
-                </span>
-              </h1>
-
-              <div style={{ display:"flex", alignItems:"center", gap:12 }}>
-                <p style={{ color:"#334155", fontSize:13, margin:0, fontWeight:500 }}>Trabajo Final · Métodos Numéricos · Newton-Cotes</p>
-                <div style={{ display:"flex", gap:5, alignItems:"center" }}>
-                  {[m.color,"#7c3aed","#0891b2"].map((c,i) => (
-                    <div key={i} style={{ width:4, height:4, borderRadius:"50%", background:c, animation:`dotPulse 2s ease-in-out ${i*0.45}s infinite`, opacity:0.65 }}/>
-                  ))}
-                </div>
+          <div style={{ display: "flex", gap: 10, alignItems: "center", flexShrink: 0 }}>
+            <div style={{ background: `${m.accent}22`, border: `1.5px solid ${m.accent}44`, borderRadius: 14, padding: "9px 16px", display: "flex", alignItems: "center", gap: 9 }}>
+              <span style={{ fontSize: 20, color: m.accent, fontWeight: 900 }}>{m.icon}</span>
+              <div>
+                <p style={{ color: "white", fontSize: 12, fontWeight: 800, margin: 0 }}>{m.title}</p>
+                <p style={{ color: "rgba(255,255,255,0.4)", fontSize: 9, margin: "2px 0 0" }}>{m.restriccion}</p>
               </div>
             </div>
-
             <button onClick={() => setShowTeam(true)}
-              style={{ background:"rgba(255,255,255,0.05)", border:"1px solid rgba(255,255,255,0.1)", color:"#cbd5e1", borderRadius:16, padding:"13px 26px", fontSize:12, fontWeight:700, cursor:"pointer", letterSpacing:"0.04em", display:"flex", alignItems:"center", gap:10, backdropFilter:"blur(10px)", transition:"all 0.3s" }}
-              onMouseEnter={e => { e.currentTarget.style.background=`${m.color}22`; e.currentTarget.style.borderColor=`${m.color}55`; e.currentTarget.style.transform="translateY(-3px)"; }}
-              onMouseLeave={e => { e.currentTarget.style.background="rgba(255,255,255,0.05)"; e.currentTarget.style.borderColor="rgba(255,255,255,0.1)"; e.currentTarget.style.transform="none"; }}>
-              <span style={{ fontSize:16 }}>👥</span> Ver Autores
+              style={{ background: "rgba(255,255,255,0.08)", border: "1px solid rgba(255,255,255,0.15)", color: "rgba(255,255,255,0.75)", borderRadius: 12, padding: "10px 18px", fontSize: 12, fontWeight: 700, cursor: "pointer", display: "flex", alignItems: "center", gap: 7, transition: "all 0.2s ease" }}
+              onMouseEnter={e => { e.currentTarget.style.background = `${m.accent}33`; e.currentTarget.style.borderColor = m.accent; e.currentTarget.style.color = m.accent; }}
+              onMouseLeave={e => { e.currentTarget.style.background = "rgba(255,255,255,0.08)"; e.currentTarget.style.borderColor = "rgba(255,255,255,0.15)"; e.currentTarget.style.color = "rgba(255,255,255,0.75)"; }}>
+              👥 Ver Autores
             </button>
           </div>
         </div>
+
+        <div style={{ position: "absolute", bottom: 0, left: 0, right: 0, height: 1, background: `linear-gradient(90deg, transparent, ${m.accent}88, transparent)` }} />
       </header>
 
-      {/* TABS */}
-      <div style={{ maxWidth:1200, margin:"0 auto", padding:"1.6rem 2rem 0", position:"relative", zIndex:10 }}>
-        <div style={{ display:"inline-flex", gap:3, background:"rgba(255,255,255,0.04)", border:"1px solid rgba(255,255,255,0.07)", borderRadius:16, padding:5, backdropFilter:"blur(12px)" }}>
-          {[{id:"sim",label:"Simulador",icon:"⊕"},{id:"teoria",label:"Marco Teórico",icon:"∂"}].map(t => (
+      {/* ─── TABS ─── */}
+      <div style={{ background: "rgba(255,255,255,0.85)", backdropFilter: "blur(20px)", borderBottom: "1px solid rgba(255,255,255,0.9)", position: "sticky", top: 0, zIndex: 50, boxShadow: "0 2px 12px rgba(0,0,0,0.06)" }}>
+        <div style={{ maxWidth: 1200, margin: "0 auto", padding: "0 24px", display: "flex", gap: 4, alignItems: "center" }}>
+          {[{ id: "sim", label: "Simulador", icon: "⊕" }, { id: "teoria", label: "Marco Teórico", icon: "∂" }].map(t => (
             <button key={t.id} onClick={() => setTab(t.id)}
-              style={{ padding:"10px 26px", borderRadius:12, border:"none", cursor:"pointer", fontWeight:700, fontSize:12, letterSpacing:"0.04em", transition:"all 0.3s", background:tab===t.id?`linear-gradient(135deg, ${m.color}30, ${m.color}18)`:"transparent", color:tab===t.id?m.accentDark:"#334155", boxShadow:tab===t.id?`0 2px 20px ${m.color}25, inset 0 0 0 1px ${m.color}30`:"none" }}>
-              <span style={{ marginRight:7, fontSize:14 }}>{t.icon}</span>{t.label}
+              style={{ padding: "14px 22px", border: "none", borderBottom: `2.5px solid ${tab === t.id ? m.accent : "transparent"}`, cursor: "pointer", fontWeight: 700, fontSize: 12, letterSpacing: "0.04em", background: "transparent", color: tab === t.id ? m.accent : "#94a3b8", transition: "all 0.25s ease" }}>
+              <span style={{ marginRight: 6 }}>{t.icon}</span>{t.label}
             </button>
           ))}
         </div>
       </div>
 
-      {/* SIMULADOR */}
+      {/* ─── SIMULADOR ─── */}
       {tab === "sim" && (
-        <div style={{ maxWidth:1200, margin:"0 auto", padding:"1.6rem 2rem 4rem", display:"grid", gridTemplateColumns:"400px 1fr", gap:22, alignItems:"start", position:"relative", zIndex:10 }}>
+        <div style={{ maxWidth: 1200, margin: "0 auto", padding: "20px 24px 60px", display: "grid", gridTemplateColumns: "360px 1fr", gap: 18, alignItems: "start", position: "relative", zIndex: 1 }}>
 
-          <div style={{ display:"flex", flexDirection:"column", gap:18 }}>
-            <GlassCard style={{ padding:22 }} delay={0}>
-              <p style={{ fontSize:9, fontWeight:800, color:"#1e3a5f", textTransform:"uppercase", letterSpacing:"0.14em", margin:"0 0 16px" }}>Algoritmo Analítico</p>
-              <div style={{ display:"flex", flexDirection:"column", gap:7 }}>
+          {/* LEFT PANEL */}
+          <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
+
+            <Card style={{ padding: 18 }}>
+              <p style={{ fontSize: 9, fontWeight: 800, color: "#94a3b8", textTransform: "uppercase", letterSpacing: "0.14em", margin: "0 0 12px" }}>Algoritmo Analítico</p>
+              <div style={{ display: "flex", flexDirection: "column", gap: 5 }}>
                 {Object.entries(METHODS).map(([key, md]) => {
                   const sel = metodo === key;
                   return (
                     <button key={key} onClick={() => { setMetodo(key); reset(); }}
-                      style={{ display:"flex", alignItems:"center", gap:14, padding:"12px 15px", borderRadius:14, border:`1px solid ${sel?md.color+"50":"rgba(255,255,255,0.05)"}`, background:sel?`linear-gradient(135deg, ${md.color}20, ${md.color}10)`:"rgba(255,255,255,0.02)", cursor:"pointer", transition:"all 0.3s", transform:sel?"scale(1.018)":"scale(1)", boxShadow:sel?`0 6px 28px ${md.color}25`:"none", textAlign:"left" }}>
-                      <div style={{ width:40, height:40, borderRadius:11, flexShrink:0, background:sel?`${md.color}28`:"rgba(255,255,255,0.04)", border:`1px solid ${sel?md.color+"45":"rgba(255,255,255,0.07)"}`, display:"flex", alignItems:"center", justifyContent:"center", fontSize:17, fontWeight:900, color:sel?md.accentDark:"#334155" }}>{md.icon}</div>
-                      <div style={{ flex:1, minWidth:0 }}>
-                        <div style={{ fontSize:12, fontWeight:800, color:sel?md.accentDark:"#94a3b8" }}>{md.title}</div>
-                        <div style={{ fontSize:9, color:"#1e3a5f", marginTop:2 }}>{md.subtitle} · {md.restriccion}</div>
+                      style={{ display: "flex", alignItems: "center", gap: 10, padding: "10px 12px", borderRadius: 11, border: `1.5px solid ${sel ? md.border : "rgba(0,0,0,0.06)"}`, background: sel ? md.soft : "rgba(248,250,252,0.7)", cursor: "pointer", transition: "all 0.25s ease", transform: sel ? "scale(1.012)" : "scale(1)", boxShadow: sel ? `0 3px 14px ${md.accent}22` : "none", textAlign: "left" }}>
+                      <div style={{ width: 36, height: 36, borderRadius: 9, flexShrink: 0, background: sel ? md.soft : "#f1f5f9", border: `1px solid ${sel ? md.border : "#e2e8f0"}`, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 15, fontWeight: 900, color: sel ? md.accent : "#94a3b8" }}>{md.icon}</div>
+                      <div style={{ flex: 1, minWidth: 0 }}>
+                        <div style={{ fontSize: 12, fontWeight: 800, color: sel ? md.accent : "#475569" }}>{md.title}</div>
+                        <div style={{ fontSize: 9, color: "#94a3b8", marginTop: 1 }}>{md.subtitle} · {md.restriccion}</div>
                       </div>
-                      {sel && <div style={{ width:8, height:8, borderRadius:"50%", background:md.accentDark, animation:"dotPulse 2s ease-in-out infinite", flexShrink:0 }}/>}
+                      {sel && <div style={{ width: 6, height: 6, borderRadius: "50%", background: md.accent, animation: "dotPulse 2s ease-in-out infinite", flexShrink: 0 }} />}
                     </button>
                   );
                 })}
               </div>
-            </GlassCard>
+            </Card>
 
-            <GlassCard style={{ padding:22 }} delay={0.06}>
-              <p style={{ fontSize:9, fontWeight:800, color:"#1e3a5f", textTransform:"uppercase", letterSpacing:"0.14em", margin:"0 0 18px" }}>Parámetros de Entrada</p>
-              <p style={{ fontSize:9, color:"#1e3a5f", fontWeight:700, marginBottom:9, textTransform:"uppercase", letterSpacing:"0.09em" }}>Preajustes f(x)</p>
-              <div style={{ display:"flex", flexWrap:"wrap", gap:6, marginBottom:18 }}>
+            <Card style={{ padding: 18 }}>
+              <p style={{ fontSize: 9, fontWeight: 800, color: "#94a3b8", textTransform: "uppercase", letterSpacing: "0.14em", margin: "0 0 14px" }}>Parámetros de Entrada</p>
+
+              <p style={{ fontSize: 9, color: "#94a3b8", fontWeight: 700, marginBottom: 7, textTransform: "uppercase", letterSpacing: "0.09em" }}>Preajustes f(x)</p>
+              <div style={{ display: "flex", flexWrap: "wrap", gap: 5, marginBottom: 14 }}>
                 {FX_PRESETS.map(p => (
                   <button key={p.value} onClick={() => { setFuncion(p.value); reset(); }}
-                    style={{ padding:"5px 13px", borderRadius:9, border:"1px solid", borderColor:funcion===p.value?m.color+"60":"rgba(255,255,255,0.07)", background:funcion===p.value?`${m.color}22`:"rgba(255,255,255,0.03)", color:funcion===p.value?m.accentDark:"#334155", fontSize:11, fontFamily:"monospace", fontWeight:700, cursor:"pointer" }}>{p.label}</button>
+                    style={{ padding: "5px 10px", borderRadius: 7, border: `1px solid ${funcion === p.value ? m.accent : "#e2e8f0"}`, background: funcion === p.value ? m.soft : "rgba(248,250,252,0.8)", color: funcion === p.value ? m.accent : "#64748b", fontSize: 11, fontFamily: "monospace", fontWeight: 700, cursor: "pointer", transition: "all 0.18s ease" }}>{p.label}</button>
                 ))}
               </div>
-              <label style={{ display:"block", fontSize:9, fontWeight:700, color:"#1e3a5f", marginBottom:7, textTransform:"uppercase", letterSpacing:"0.08em" }}>Función objetivo f(x)</label>
-              <input value={funcion} onChange={e => setFuncion(e.target.value)}
-                style={{ width:"100%", padding:"11px 15px", borderRadius:12, border:"1px solid rgba(255,255,255,0.09)", background:"rgba(255,255,255,0.04)", fontSize:14, fontFamily:"'Fira Code', monospace", color:"#e2e8f0", outline:"none", boxSizing:"border-box", marginBottom:18 }}
+
+              <label style={{ display: "block", fontSize: 9, fontWeight: 700, color: "#94a3b8", marginBottom: 5, textTransform: "uppercase", letterSpacing: "0.08em" }}>Función f(x)</label>
+              <input value={funcion} onChange={e => { setFuncion(e.target.value); reset(); }}
+                style={{ width: "100%", padding: "10px 13px", borderRadius: 10, border: "1.5px solid #e2e8f0", background: "rgba(248,250,252,0.9)", fontSize: 13, fontFamily: "monospace", color: "#0f172a", outline: "none", boxSizing: "border-box", marginBottom: 14, transition: "border-color 0.2s ease" }}
                 placeholder="ej. sqrt(x+5)"
-                onFocus={e => { e.target.style.borderColor=m.color+"60"; e.target.style.boxShadow=`0 0 0 3px ${m.color}18`; }}
-                onBlur={e => { e.target.style.borderColor="rgba(255,255,255,0.09)"; e.target.style.boxShadow="none"; }}/>
-              <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:12, marginBottom:18 }}>
-                <LimitInputDark label="Límite inferior (a)" value={limiteA} onChange={v => { setLimiteA(v); reset(); }}/>
-                <LimitInputDark label="Límite superior (b)" value={limiteB} onChange={v => { setLimiteB(v); reset(); }}/>
+                onFocus={e => { e.target.style.borderColor = m.accent; e.target.style.background = m.soft; }}
+                onBlur={e => { e.target.style.borderColor = "#e2e8f0"; e.target.style.background = "rgba(248,250,252,0.9)"; }} />
+
+              <div style={{ display: "flex", gap: 10, marginBottom: 14 }}>
+                <Stepper label="Límite inferior (a)" value={limiteA} onChange={v => { setLimiteA(v); reset(); }} />
+                <Stepper label="Límite superior (b)" value={limiteB} onChange={v => { setLimiteB(v); reset(); }} />
               </div>
-              <NControlDark value={nVal} onChange={setNVal} min={metodo==="boole"?4:2} max={30} step={getStep()} disabled={metodo==="boole"} color={m.color} accentDark={m.accentDark}/>
-              {error && <div style={{ marginTop:14, background:"rgba(190,18,60,0.12)", border:"1px solid rgba(190,18,60,0.35)", borderRadius:12, padding:"11px 15px", color:"#fca5a5", fontSize:12, fontWeight:600 }}>⚠️ {error}</div>}
-              <div style={{ display:"flex", gap:10, marginTop:20 }}>
-                <button onClick={reset} style={{ flex:1, padding:"13px", borderRadius:13, border:"1px solid rgba(255,255,255,0.08)", background:"rgba(255,255,255,0.04)", color:"#475569", fontWeight:700, fontSize:12, cursor:"pointer" }}>↺ Resetear</button>
+
+              <div style={{ marginBottom: 16 }}>
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 7 }}>
+                  <span style={{ fontSize: 9, fontWeight: 700, color: "#94a3b8", textTransform: "uppercase", letterSpacing: "0.07em" }}>Subintervalos (n)</span>
+                  <span style={{ background: m.soft, color: m.accent, fontSize: 12, fontWeight: 900, padding: "3px 11px", borderRadius: 50, fontFamily: "monospace", border: `1px solid ${m.border}` }}>n = {nVal}</span>
+                </div>
+                <div style={{ display: "flex", alignItems: "center", background: "rgba(248,250,252,0.9)", border: `1.5px solid ${metodo === "boole" ? "#e2e8f0" : m.border}`, borderRadius: 11, overflow: "hidden", height: 44 }}>
+                  <button onClick={() => metodo !== "boole" && setNVal(clamp(nVal - getStep(), 2, 30))} disabled={metodo === "boole" || nVal <= 2}
+                    style={{ width: 44, height: "100%", border: "none", background: "transparent", cursor: metodo === "boole" ? "not-allowed" : "pointer", fontSize: 20, color: metodo === "boole" ? "#e2e8f0" : m.accent, flexShrink: 0 }}>−</button>
+                  <input type="number" value={nVal} onChange={e => { const v = parseInt(e.target.value, 10); if (!isNaN(v)) setNVal(clamp(v, 2, 30)); }} disabled={metodo === "boole"}
+                    style={{ flex: 1, height: "100%", border: "none", background: "transparent", textAlign: "center", fontSize: 16, fontWeight: 900, fontFamily: "monospace", color: metodo === "boole" ? "#e2e8f0" : "#0f172a", outline: "none" }} />
+                  <button onClick={() => metodo !== "boole" && setNVal(clamp(nVal + getStep(), 2, 30))} disabled={metodo === "boole" || nVal >= 30}
+                    style={{ width: 44, height: "100%", border: "none", background: "transparent", cursor: metodo === "boole" ? "not-allowed" : "pointer", fontSize: 20, color: metodo === "boole" ? "#e2e8f0" : m.accent, flexShrink: 0 }}>+</button>
+                </div>
+                <div style={{ marginTop: 9, position: "relative", height: 5, background: "#f1f5f9", borderRadius: 99 }}>
+                  <div style={{ position: "absolute", left: 0, top: 0, height: "100%", width: `${((nVal - 2) / 28) * 100}%`, background: metodo === "boole" ? "#e2e8f0" : `linear-gradient(90deg, ${m.soft}, ${m.accent})`, borderRadius: 99, transition: "width 0.35s ease" }} />
+                </div>
+              </div>
+
+              {error && <div style={{ marginBottom: 12, background: "#FEF2F2", border: "1px solid #FECACA", borderRadius: 9, padding: "9px 13px", color: "#991B1B", fontSize: 12, fontWeight: 600 }}>⚠️ {error}</div>}
+
+              <div style={{ display: "flex", gap: 8 }}>
+                <button onClick={reset}
+                  style={{ flex: 1, padding: "11px", borderRadius: 10, border: "1.5px solid #e2e8f0", background: "rgba(248,250,252,0.9)", color: "#64748b", fontWeight: 700, fontSize: 12, cursor: "pointer", transition: "all 0.2s ease" }}
+                  onMouseEnter={e => e.currentTarget.style.borderColor = "#94a3b8"}
+                  onMouseLeave={e => e.currentTarget.style.borderColor = "#e2e8f0"}>
+                  ↺ Resetear
+                </button>
                 <button onClick={calcular} disabled={loading}
-                  style={{ flex:2.2, padding:"13px", borderRadius:13, border:"none", background:loading?"#0f172a":`linear-gradient(135deg, ${m.color}, ${m.color}cc)`, color:loading?"#334155":"#fff", fontWeight:800, fontSize:13, cursor:loading?"not-allowed":"pointer", boxShadow:loading?"none":`0 6px 28px ${m.color}45`, transition:"all 0.35s" }}>
+                  style={{ flex: 2.2, padding: "11px", borderRadius: 10, border: "none", background: loading ? "#e2e8f0" : m.accent, color: loading ? "#94a3b8" : "white", fontWeight: 800, fontSize: 13, cursor: loading ? "not-allowed" : "pointer", boxShadow: loading ? "none" : `0 4px 18px ${m.accent}44`, transition: "all 0.3s ease" }}>
                   {loading ? "⟳ Calculando..." : "∫ Calcular Integral"}
                 </button>
               </div>
-            </GlassCard>
+            </Card>
           </div>
 
-          <div style={{ display:"flex", flexDirection:"column", gap:18 }}>
-            <GlassCard style={{ padding:26 }} glow={m.color} delay={0.1}>
-              <div style={{ display:"flex", justifyContent:"space-between", alignItems:"flex-start", marginBottom:18 }}>
-                <div>
-                  <p style={{ fontSize:9, fontWeight:800, color:"#1e3a5f", textTransform:"uppercase", letterSpacing:"0.13em", margin:"0 0 7px" }}>Fórmula Activa</p>
-                  <h3 style={{ color:"#f1f5f9", fontSize:16, fontWeight:800, margin:0 }}>{m.title} <span style={{ color:"#334155", fontWeight:400 }}>—</span> {m.subtitle}</h3>
-                </div>
-                <div style={{ background:`${m.color}1a`, border:`1px solid ${m.color}40`, borderRadius:10, padding:"7px 16px", color:m.accentDark, fontSize:10, fontWeight:800, fontFamily:"monospace", flexShrink:0 }}>{metodo}</div>
-              </div>
-              <div style={{ background:"rgba(0,0,0,0.35)", border:"1px solid rgba(255,255,255,0.05)", borderRadius:13, padding:"18px 20px", textAlign:"center" }}>
-                <div style={{ fontFamily:"'Georgia', serif", fontSize:13.5, color:m.accentDark, letterSpacing:"0.05em", lineHeight:1.9 }}>{m.formulaShort}</div>
-              </div>
-              <p style={{ color:"#334155", fontSize:12, lineHeight:1.65, margin:"13px 0 0" }}>{m.desc}</p>
-            </GlassCard>
+          {/* RIGHT PANEL */}
+          <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
 
-            <GlassCard style={{ padding:24 }} delay={0.14}>
-              <div style={{ display:"flex", justifyContent:"space-between", alignItems:"flex-start", marginBottom:16 }}>
+            <Card style={{ padding: 22 }}>
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 14 }}>
                 <div>
-                  <p style={{ fontSize:9, fontWeight:800, color:"#1e3a5f", textTransform:"uppercase", letterSpacing:"0.13em", margin:"0 0 6px" }}>Visualización Geométrica</p>
-                  <h4 style={{ fontSize:13, fontWeight:800, margin:0, color:"#94a3b8", fontFamily:"monospace" }}>
-                    <span style={{ color:m.accentDark }}>{funcion||"f(x)"}</span>
-                    <span style={{ color:"#334155" }}> ∈ [{limiteA}, {limiteB}]</span>
+                  <p style={{ fontSize: 9, fontWeight: 800, color: "#94a3b8", textTransform: "uppercase", letterSpacing: "0.13em", margin: "0 0 5px" }}>Fórmula Activa</p>
+                  <h3 style={{ color: "#0f172a", fontSize: 15, fontWeight: 800, margin: 0 }}>{m.title} — {m.subtitle}</h3>
+                </div>
+                <div style={{ background: m.soft, border: `1.5px solid ${m.border}`, borderRadius: 9, padding: "5px 14px", color: m.accent, fontSize: 10, fontWeight: 800, fontFamily: "monospace", flexShrink: 0 }}>{m.restriccion}</div>
+              </div>
+              <div style={{ background: m.soft, border: `1px solid ${m.border}`, borderRadius: 11, padding: "14px 18px", textAlign: "center" }}>
+                <div style={{ fontFamily: "Georgia, serif", fontSize: 13, color: m.text, letterSpacing: "0.04em", lineHeight: 1.85 }}>{m.formulaShort}</div>
+              </div>
+              <p style={{ color: "#64748b", fontSize: 12, lineHeight: 1.65, margin: "10px 0 0" }}>{m.desc}</p>
+            </Card>
+
+            <Card style={{ padding: 22 }}>
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 12 }}>
+                <div>
+                  <p style={{ fontSize: 9, fontWeight: 800, color: "#94a3b8", textTransform: "uppercase", letterSpacing: "0.13em", margin: "0 0 4px" }}>Visualización Geométrica</p>
+                  <h4 style={{ fontSize: 12, fontWeight: 700, margin: 0, color: "#475569", fontFamily: "monospace" }}>
+                    <span style={{ color: m.accent }}>{funcion || "f(x)"}</span>
+                    <span style={{ color: "#94a3b8" }}> ∈ [{limiteA}, {limiteB}]</span>
                   </h4>
                 </div>
                 {result !== null && (
-                  <div style={{ background:`${m.color}18`, border:`1px solid ${m.color}30`, borderRadius:11, padding:"7px 14px", display:"flex", alignItems:"center", gap:7 }}>
-                    <div style={{ width:7, height:7, borderRadius:"50%", background:m.accentDark, animation:"dotPulse 2s ease-in-out infinite" }}/>
-                    <span style={{ fontSize:12, fontWeight:800, color:m.accentDark, fontFamily:"monospace" }}>∫ ≈ {result?.toFixed(6)}</span>
+                  <div style={{ background: m.soft, border: `1.5px solid ${m.border}`, borderRadius: 9, padding: "6px 13px", display: "flex", alignItems: "center", gap: 6 }}>
+                    <div style={{ width: 6, height: 6, borderRadius: "50%", background: m.accent, animation: "dotPulse 2s ease-in-out infinite" }} />
+                    <span style={{ fontSize: 12, fontWeight: 800, color: m.accent, fontFamily: "monospace" }}>∫ ≈ {result?.toFixed(6)}</span>
                   </div>
                 )}
               </div>
-              <div style={{ background:"rgba(0,0,0,0.28)", borderRadius:14, padding:"12px 8px", border:"1px solid rgba(255,255,255,0.04)" }}>
-                <IntegralChart funcion={funcion} limiteA={limiteA} limiteB={limiteB} tabla={result!==null?tabla:[]} metodo={metodo} color={m.color}/>
+              <div style={{ background: "white", borderRadius: 12, padding: "12px 6px 6px", border: `1px solid ${m.border}`, boxShadow: `0 0 0 3px ${m.soft}` }}>
+                <IntegralChart funcion={funcion} limiteA={limiteA} limiteB={limiteB} tabla={result !== null ? tabla : []} metodo={metodo} m={m} />
               </div>
-              {result === null && <p style={{ fontSize:11, color:"#1e3a5f", textAlign:"center", marginTop:11, fontStyle:"italic" }}>Calcula la integral para ver los nodos de integración sobre la curva.</p>}
-            </GlassCard>
+              {result === null && <p style={{ fontSize: 11, color: "#94a3b8", textAlign: "center", marginTop: 8, fontStyle: "italic" }}>Calcula la integral para ver los nodos de integración sobre la curva.</p>}
+            </Card>
 
             {result !== null && !loading && (
-              <GlassCard style={{ padding:24 }} delay={0}>
-                <p style={{ fontSize:9, fontWeight:800, color:"#1e3a5f", textTransform:"uppercase", letterSpacing:"0.13em", margin:"0 0 18px" }}>Resultados de la Integración</p>
-                <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:12, marginBottom:20 }}>
+              <Card style={{ padding: 20, animation: "slideUp 0.4s cubic-bezier(0.22,1,0.36,1)" }}>
+                <p style={{ fontSize: 9, fontWeight: 800, color: "#94a3b8", textTransform: "uppercase", letterSpacing: "0.13em", margin: "0 0 14px" }}>Resultados de la Integración</p>
+                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 9, marginBottom: 16 }}>
                   {[
-                    { label:"Diferencial Δ",  value:delta?.toFixed(6),          c:"#334155",    big:false },
-                    { label:"∫ Resultado",     value:<CountUp value={result} decimals={8}/>, c:m.accentDark, big:true  },
-                    { label:"Σ Acumulada",     value:sumatoria?.toFixed(8),      c:"#94a3b8",    big:false },
-                    { label:"Subintervalos",   value:tabla.length-1,             c:"#94a3b8",    big:false },
+                    { label: "Diferencial Δ", value: delta?.toFixed(6), big: false },
+                    { label: "∫ Resultado", value: <CountUp value={result} decimals={8} />, big: true },
+                    { label: "Σ Acumulada", value: sumatoria?.toFixed(8), big: false },
+                    { label: "Subintervalos", value: tabla.length - 1, big: false },
                   ].map((kpi, i) => (
-                    <div key={i} style={{ background:kpi.big?`${m.color}12`:"rgba(255,255,255,0.03)", borderRadius:14, padding:kpi.big?"18px 20px":"15px 17px", border:`1px solid ${kpi.big?m.color+"30":"rgba(255,255,255,0.05)"}` }}>
-                      <span style={{ fontSize:8, color:"#1e3a5f", fontWeight:800, textTransform:"uppercase", letterSpacing:"0.12em", display:"block", marginBottom:8 }}>{kpi.label}</span>
-                      <span style={{ fontFamily:"'Fira Code', monospace", fontWeight:900, color:kpi.c, fontSize:kpi.big?18:14, display:"block" }}>{kpi.value}</span>
+                    <div key={i} style={{ background: kpi.big ? m.soft : "rgba(248,250,252,0.9)", borderRadius: 11, padding: kpi.big ? "14px 16px" : "11px 13px", border: `1px solid ${kpi.big ? m.border : "#f1f5f9"}` }}>
+                      <span style={{ fontSize: 8, color: "#94a3b8", fontWeight: 800, textTransform: "uppercase", letterSpacing: "0.12em", display: "block", marginBottom: 6 }}>{kpi.label}</span>
+                      <span style={{ fontFamily: "monospace", fontWeight: 900, color: kpi.big ? m.accent : "#475569", fontSize: kpi.big ? 16 : 12, display: "block" }}>{kpi.value}</span>
                     </div>
                   ))}
                 </div>
-                <div style={{ border:"1px solid rgba(255,255,255,0.05)", borderRadius:14, overflow:"hidden" }}>
-                  <div style={{ background:"rgba(0,0,0,0.35)", padding:"10px 16px", borderBottom:"1px solid rgba(255,255,255,0.05)", display:"grid", gridTemplateColumns:"1fr 1.5fr 1fr 1fr", gap:8 }}>
-                    {["Xᵢ","Coef · f(xᵢ)","f(xᵢ)","Parcial"].map(h => <span key={h} style={{ fontSize:8, fontWeight:800, color:"#1e3a5f", textTransform:"uppercase", letterSpacing:"0.11em" }}>{h}</span>)}
+
+                <div style={{ border: "1px solid #f1f5f9", borderRadius: 11, overflow: "hidden" }}>
+                  <div style={{ background: m.soft, padding: "8px 14px", borderBottom: `1px solid ${m.border}`, display: "grid", gridTemplateColumns: "1fr 1.5fr 1fr 1fr", gap: 6 }}>
+                    {["Xᵢ", "Coef · f(xᵢ)", "f(xᵢ)", "Parcial"].map(h => <span key={h} style={{ fontSize: 8, fontWeight: 800, color: m.text, textTransform: "uppercase", letterSpacing: "0.11em" }}>{h}</span>)}
                   </div>
-                  <div style={{ maxHeight:210, overflowY:"auto" }}>
+                  <div style={{ maxHeight: 190, overflowY: "auto" }}>
                     {tabla.map((row, idx) => (
-                      <div key={idx} style={{ display:"grid", gridTemplateColumns:"1fr 1.5fr 1fr 1fr", gap:8, padding:"9px 16px", background:idx%2===0?"rgba(255,255,255,0.018)":"transparent", borderBottom:idx<tabla.length-1?"1px solid rgba(255,255,255,0.03)":"none" }}>
-                        <span style={{ fontFamily:"monospace", fontSize:11, fontWeight:700, color:"#64748b" }}>{row.xi.toFixed(4)}</span>
-                        <span style={{ fontFamily:"monospace", fontSize:11, color:m.accentDark, fontWeight:600 }}>{row.coef} × f({row.xi.toFixed(3)})</span>
-                        <span style={{ fontFamily:"monospace", fontSize:11, color:"#475569" }}>{row.fxi.toFixed(5)}</span>
-                        <span style={{ fontFamily:"monospace", fontSize:12, fontWeight:800, color:"#34d399" }}>{row.parcial.toFixed(5)}</span>
+                      <div key={idx} style={{ display: "grid", gridTemplateColumns: "1fr 1.5fr 1fr 1fr", gap: 6, padding: "7px 14px", background: idx % 2 === 0 ? "rgba(248,250,252,0.7)" : "rgba(255,255,255,0.8)", borderBottom: idx < tabla.length - 1 ? "1px solid #f8fafc" : "none" }}>
+                        <span style={{ fontFamily: "monospace", fontSize: 11, fontWeight: 700, color: "#64748b" }}>{row.xi.toFixed(4)}</span>
+                        <span style={{ fontFamily: "monospace", fontSize: 11, color: m.accent, fontWeight: 600 }}>{row.coef} × f({row.xi.toFixed(3)})</span>
+                        <span style={{ fontFamily: "monospace", fontSize: 11, color: "#64748b" }}>{row.fxi.toFixed(5)}</span>
+                        <span style={{ fontFamily: "monospace", fontSize: 12, fontWeight: 800, color: "#059669" }}>{row.parcial.toFixed(5)}</span>
                       </div>
                     ))}
                   </div>
                 </div>
-                <div style={{ marginTop:13, background:`${m.color}0e`, border:`1px solid ${m.color}22`, borderRadius:13, padding:"14px 18px", display:"flex", justifyContent:"space-between", alignItems:"center" }}>
-                  <span style={{ fontSize:10, color:"#1e3a5f", fontWeight:700, textTransform:"uppercase", letterSpacing:"0.1em" }}>Σ Total f(xᵢ) · coef</span>
-                  <span style={{ fontFamily:"monospace", fontWeight:900, fontSize:13, color:m.accentDark }}>{sumatoria?.toFixed(10)}</span>
+
+                <div style={{ marginTop: 10, background: m.soft, border: `1px solid ${m.border}`, borderRadius: 10, padding: "10px 14px", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                  <span style={{ fontSize: 10, color: "#94a3b8", fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.1em" }}>Σ Total f(xᵢ) · coef</span>
+                  <span style={{ fontFamily: "monospace", fontWeight: 900, fontSize: 13, color: m.accent }}>{sumatoria?.toFixed(10)}</span>
                 </div>
-              </GlassCard>
+              </Card>
             )}
 
             {loading && (
-              <GlassCard style={{ padding:52, display:"flex", flexDirection:"column", alignItems:"center", gap:18 }} delay={0}>
-                <div style={{ position:"relative", width:56, height:56 }}>
-                  <div style={{ position:"absolute", inset:0, borderRadius:"50%", border:`2px solid ${m.color}20`, borderTopColor:m.color, animation:"spin 0.9s linear infinite" }}/>
-                  <div style={{ position:"absolute", inset:6, borderRadius:"50%", border:`1.5px solid ${m.color}15`, borderBottomColor:m.accentDark, animation:"spin 1.4s linear infinite reverse" }}/>
-                  <div style={{ position:"absolute", inset:0, display:"flex", alignItems:"center", justifyContent:"center", color:m.accentDark, fontSize:14, fontWeight:900 }}>∫</div>
+              <Card style={{ padding: 48, display: "flex", flexDirection: "column", alignItems: "center", gap: 16 }}>
+                <div style={{ position: "relative", width: 52, height: 52 }}>
+                  <div style={{ position: "absolute", inset: 0, borderRadius: "50%", border: `2.5px solid ${m.border}`, borderTopColor: m.accent, animation: "spin 0.85s linear infinite" }} />
+                  <div style={{ position: "absolute", inset: 8, borderRadius: "50%", border: `1.5px solid ${m.soft}`, borderBottomColor: m.accent, animation: "spin 1.3s linear infinite reverse" }} />
+                  <div style={{ position: "absolute", inset: 0, display: "flex", alignItems: "center", justifyContent: "center", color: m.accent, fontSize: 14, fontWeight: 900 }}>∫</div>
                 </div>
-                <p style={{ fontSize:13, fontWeight:700, color:"#334155", margin:0 }}>Procesando integral...</p>
-              </GlassCard>
+                <p style={{ fontSize: 13, fontWeight: 700, color: "#64748b", margin: 0 }}>Procesando integral...</p>
+              </Card>
             )}
           </div>
         </div>
       )}
 
-      {/* MARCO TEÓRICO */}
+      {/* ─── MARCO TEÓRICO ─── */}
       {tab === "teoria" && (
-        <div style={{ maxWidth:980, margin:"0 auto", padding:"2rem 2rem 5rem", position:"relative", zIndex:10 }}>
-          <GlassCard style={{ padding:"30px 36px", marginBottom:26 }} delay={0}>
-            <div style={{ display:"flex", alignItems:"flex-start", gap:20 }}>
-              <div style={{ width:48, height:48, borderRadius:14, background:"rgba(37,99,235,0.15)", border:"1px solid rgba(37,99,235,0.3)", display:"flex", alignItems:"center", justifyContent:"center", fontSize:22, color:"#60a5fa", flexShrink:0 }}>∫</div>
+        <div style={{ maxWidth: 960, margin: "0 auto", padding: "24px 24px 60px", position: "relative", zIndex: 1 }}>
+          <Card style={{ padding: "24px 28px", marginBottom: 18 }}>
+            <div style={{ display: "flex", alignItems: "flex-start", gap: 16 }}>
+              <div style={{ width: 44, height: 44, borderRadius: 12, background: m.soft, border: `1.5px solid ${m.border}`, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 20, color: m.accent, flexShrink: 0 }}>∫</div>
               <div>
-                <h2 style={{ color:"#f1f5f9", fontSize:22, fontWeight:900, margin:"0 0 12px" }}>Newton-Cotes · Marco Conceptual</h2>
-                <p style={{ color:"#334155", fontSize:13, lineHeight:1.8, margin:0 }}>
+                <h2 style={{ color: "#0f172a", fontSize: 19, fontWeight: 900, margin: "0 0 8px" }}>Newton-Cotes · Marco Conceptual</h2>
+                <p style={{ color: "#64748b", fontSize: 13, lineHeight: 1.75, margin: 0 }}>
                   Las fórmulas de Newton-Cotes aproximan integrales definidas reemplazando f(x) por un polinomio interpolador con incremento constante{" "}
-                  <code style={{ fontFamily:"monospace", color:"#60a5fa", background:"rgba(37,99,235,0.12)", padding:"2px 8px", borderRadius:6 }}>Δ = (b − a) / n</code>.
+                  <code style={{ fontFamily: "monospace", color: m.accent, background: m.soft, padding: "2px 8px", borderRadius: 6 }}>Δ = (b − a) / n</code>.
                 </p>
               </div>
             </div>
-          </GlassCard>
-          <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:18 }}>
-            {Object.entries(METHODS).map(([key, md], idx) => (
-              <GlassCard key={key} style={{ padding:26, gridColumn:key==="abierto"?"1 / -1":"auto" }} glow={md.color} delay={idx*0.07}>
-                <div style={{ display:"flex", alignItems:"center", gap:14, marginBottom:16 }}>
-                  <div style={{ width:46, height:46, borderRadius:13, background:`${md.color}18`, border:`1.5px solid ${md.color}40`, display:"flex", alignItems:"center", justifyContent:"center", fontSize:20, fontWeight:900, color:md.accentDark }}>{md.icon}</div>
+          </Card>
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 14 }}>
+            {Object.entries(METHODS).map(([key, md]) => (
+              <Card key={key} style={{ padding: 22, gridColumn: key === "abierto" ? "1 / -1" : "auto", cursor: "pointer", transition: "transform 0.2s ease, box-shadow 0.2s ease" }}
+                onMouseEnter={e => { e.currentTarget.style.transform = "translateY(-2px)"; e.currentTarget.style.boxShadow = `0 10px 28px ${md.accent}18`; }}
+                onMouseLeave={e => { e.currentTarget.style.transform = "none"; e.currentTarget.style.boxShadow = ""; }}>
+                <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 12 }}>
+                  <div style={{ width: 42, height: 42, borderRadius: 11, background: md.soft, border: `1.5px solid ${md.border}`, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 17, fontWeight: 900, color: md.accent }}>{md.icon}</div>
                   <div>
-                    <h3 style={{ fontSize:15, fontWeight:800, margin:0, color:"#e2e8f0" }}>{md.title}</h3>
-                    <span style={{ fontSize:10, color:"#334155" }}>{md.subtitle}</span>
+                    <h3 style={{ fontSize: 14, fontWeight: 800, margin: 0, color: "#0f172a" }}>{md.title}</h3>
+                    <span style={{ fontSize: 10, color: "#94a3b8" }}>{md.subtitle}</span>
                   </div>
                 </div>
-                <p style={{ fontSize:12, color:"#334155", lineHeight:1.7, margin:"0 0 16px" }}>{md.desc}</p>
-                <div style={{ background:"rgba(0,0,0,0.4)", borderRadius:12, padding:"15px", textAlign:"center", border:"1px solid rgba(255,255,255,0.04)" }}>
-                  <div style={{ fontFamily:"Georgia, serif", fontSize:12.5, color:md.accentDark, lineHeight:1.9 }}>{md.formulaShort}</div>
+                <p style={{ fontSize: 12, color: "#64748b", lineHeight: 1.7, margin: "0 0 12px" }}>{md.desc}</p>
+                <div style={{ background: md.soft, borderRadius: 9, padding: "11px 14px", textAlign: "center", border: `1px solid ${md.border}` }}>
+                  <div style={{ fontFamily: "Georgia, serif", fontSize: 12, color: md.text, lineHeight: 1.85 }}>{md.formulaShort}</div>
                 </div>
-                <div style={{ marginTop:12, display:"inline-flex", alignItems:"center", gap:7, background:`${md.color}15`, border:`1px solid ${md.color}28`, borderRadius:50, padding:"4px 14px" }}>
-                  <span style={{ fontSize:10, color:md.accentDark, fontWeight:700 }}>⚡ {md.restriccion}</span>
+                <div style={{ marginTop: 9, display: "inline-flex", alignItems: "center", gap: 5, background: md.soft, border: `1px solid ${md.border}`, borderRadius: 50, padding: "3px 12px" }}>
+                  <span style={{ fontSize: 10, color: md.accent, fontWeight: 700 }}>⚡ {md.restriccion}</span>
                 </div>
-              </GlassCard>
+              </Card>
             ))}
           </div>
         </div>
       )}
 
-      {showTeam && <TeamModal onClose={() => setShowTeam(false)}/>}
+      {showTeam && <TeamModal onClose={() => setShowTeam(false)} m={m} />}
 
       <style>{`
-        @import url('https://fonts.googleapis.com/css2?family=Fira+Code:wght@400;700&display=swap');
-        @keyframes slideUp  { from { opacity:0; transform:translateY(18px); } to { opacity:1; transform:translateY(0); } }
-        @keyframes popIn    { from { opacity:0; transform:scale(0.90); } to { opacity:1; transform:scale(1); } }
-        @keyframes spin     { to { transform:rotate(360deg); } }
-        @keyframes dotPulse { 0%,100% { opacity:1; } 50% { opacity:0.5; } }
+        @import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;700;900&display=swap');
+        @keyframes slideUp  { from{opacity:0;transform:translateY(14px)}to{opacity:1;transform:translateY(0)} }
+        @keyframes popIn    { from{opacity:0;transform:scale(0.93)}to{opacity:1;transform:scale(1)} }
+        @keyframes spin     { to{transform:rotate(360deg)} }
+        @keyframes dotPulse { 0%,100%{opacity:1;transform:scale(1)} 50%{opacity:0.5;transform:scale(0.8)} }
         input[type=number]::-webkit-inner-spin-button,
-        input[type=number]::-webkit-outer-spin-button { -webkit-appearance:none; margin:0; }
-        input[type=number] { -moz-appearance:textfield; }
-        ::-webkit-scrollbar { width:4px; }
-        ::-webkit-scrollbar-track { background:rgba(0,0,0,0.15); }
-        ::-webkit-scrollbar-thumb { background:#0f2443; border-radius:10px; }
-        input::placeholder { color:#0f2443; }
-        * { box-sizing:border-box; }
+        input[type=number]::-webkit-outer-spin-button{-webkit-appearance:none;margin:0}
+        input[type=number]{-moz-appearance:textfield}
+        ::-webkit-scrollbar{width:4px}
+        ::-webkit-scrollbar-track{background:#f1f5f9}
+        ::-webkit-scrollbar-thumb{background:#cbd5e1;border-radius:10px}
+        input::placeholder{color:#cbd5e1}
+        *{box-sizing:border-box}
       `}</style>
     </div>
   );
